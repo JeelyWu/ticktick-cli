@@ -26,26 +26,25 @@ func main() {
 		ErrOut: os.Stderr,
 	}
 
-	configPath, err := config.DefaultPath()
-	if err != nil {
-		_, _ = fmt.Fprintln(streams.ErrOut, err)
-		os.Exit(1)
-	}
-
-	authApp := &app.AuthApp{
-		ConfigStore: config.NewStore(configPath),
-		Service: auth.Service{
-			Store:   auth.KeyringStore{},
-			Browser: browserOpener{},
-			In:      streams.In,
-			Out:     streams.Out,
-		},
-	}
-
 	cmd := cli.NewRootCommand(cli.RootOptions{
 		Version: version,
 		Streams: streams,
-		AuthApp: authApp,
+		AuthResolver: func() (*app.AuthApp, error) {
+			configPath, err := config.DefaultPath()
+			if err != nil {
+				return nil, err
+			}
+
+			return &app.AuthApp{
+				ConfigStore: config.NewStore(configPath),
+				Service: auth.Service{
+					Store:   auth.KeyringStore{},
+					Browser: browserOpener{},
+					In:      streams.In,
+					Out:     streams.Out,
+				},
+			}, nil
+		},
 	})
 
 	if err := cmd.Execute(); err != nil {

@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewAuthCommand(authApp *app.AuthApp, streams Streams) *cobra.Command {
+func NewAuthCommand(resolveAuthApp AuthResolver, streams Streams) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "auth",
 		Short: "Authenticate with TickTick",
@@ -21,6 +21,10 @@ func NewAuthCommand(authApp *app.AuthApp, streams Streams) *cobra.Command {
 		Use:   "login",
 		Short: "Start the TickTick OAuth login flow",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			authApp, err := resolveAuthApp()
+			if err != nil {
+				return err
+			}
 			loginSecret := clientSecret
 			if loginSecret == "" {
 				loginSecret = os.Getenv("TICK_CLIENT_SECRET")
@@ -32,7 +36,7 @@ func NewAuthCommand(authApp *app.AuthApp, streams Streams) *cobra.Command {
 			}); err != nil {
 				return err
 			}
-			_, err := fmt.Fprintln(streams.Out, "Login successful")
+			_, err = fmt.Fprintln(streams.Out, "Login successful")
 			return err
 		},
 	}
@@ -44,6 +48,10 @@ func NewAuthCommand(authApp *app.AuthApp, streams Streams) *cobra.Command {
 		Use:   "status",
 		Short: "Show authentication status",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			authApp, err := resolveAuthApp()
+			if err != nil {
+				return err
+			}
 			status, err := authApp.Status(cmd.Context())
 			if err != nil {
 				return err
@@ -61,10 +69,14 @@ func NewAuthCommand(authApp *app.AuthApp, streams Streams) *cobra.Command {
 		Use:   "logout",
 		Short: "Delete the stored TickTick token",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			authApp, err := resolveAuthApp()
+			if err != nil {
+				return err
+			}
 			if err := authApp.Logout(cmd.Context()); err != nil {
 				return err
 			}
-			_, err := fmt.Fprintln(streams.Out, "Logged out")
+			_, err = fmt.Fprintln(streams.Out, "Logged out")
 			return err
 		},
 	}

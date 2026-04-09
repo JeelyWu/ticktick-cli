@@ -7,10 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type AuthResolver func() (*app.AuthApp, error)
+
 type RootOptions struct {
-	Version string
-	Streams Streams
-	AuthApp *app.AuthApp
+	Version      string
+	Streams      Streams
+	AuthResolver AuthResolver
 }
 
 func NewRootCommand(opts RootOptions) *cobra.Command {
@@ -27,8 +29,8 @@ func NewRootCommand(opts RootOptions) *cobra.Command {
 	cmd.SetOut(opts.Streams.Out)
 	cmd.SetErr(opts.Streams.ErrOut)
 	cmd.AddCommand(newVersionCommand(opts))
-	if opts.AuthApp != nil {
-		cmd.AddCommand(NewAuthCommand(opts.AuthApp, opts.Streams))
+	if opts.AuthResolver != nil {
+		cmd.AddCommand(NewAuthCommand(opts.AuthResolver, opts.Streams))
 	}
 	return cmd
 }

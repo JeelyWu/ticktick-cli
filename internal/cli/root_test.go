@@ -2,8 +2,11 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/jeely/ticktick-cli/internal/app"
 )
 
 func newTestStreams() (Streams, *bytes.Buffer, *bytes.Buffer) {
@@ -51,5 +54,59 @@ func TestVersionCommandPrintsVersion(t *testing.T) {
 	}
 	if got := strings.TrimSpace(stdout.String()); got != "1.2.3" {
 		t.Fatalf("version output = %q, want 1.2.3", got)
+	}
+}
+
+func TestRootCommandHelpDoesNotResolveAuthApp(t *testing.T) {
+	streams, stdout, stderr := newTestStreams()
+	resolved := 0
+	cmd := NewRootCommand(RootOptions{
+		Version: "dev",
+		Streams: streams,
+		AuthResolver: func() (*app.AuthApp, error) {
+			resolved++
+			return nil, errors.New("resolver should not run")
+		},
+	})
+	cmd.SetArgs([]string{"--help"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if resolved != 0 {
+		t.Fatalf("resolver calls = %d, want 0", resolved)
+	}
+	if !strings.Contains(stdout.String(), "auth") {
+		t.Fatalf("help output = %q, want auth command listed", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestVersionCommandDoesNotResolveAuthApp(t *testing.T) {
+	streams, stdout, stderr := newTestStreams()
+	resolved := 0
+	cmd := NewRootCommand(RootOptions{
+		Version: "1.2.3",
+		Streams: streams,
+		AuthResolver: func() (*app.AuthApp, error) {
+			resolved++
+			return nil, errors.New("resolver should not run")
+		},
+	})
+	cmd.SetArgs([]string{"version"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if resolved != 0 {
+		t.Fatalf("resolver calls = %d, want 0", resolved)
+	}
+	if got := strings.TrimSpace(stdout.String()); got != "1.2.3" {
+		t.Fatalf("version output = %q, want 1.2.3", got)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 }
