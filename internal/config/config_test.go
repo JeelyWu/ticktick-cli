@@ -41,6 +41,22 @@ func TestStoreLoadReturnsDefaultForMissingFile(t *testing.T) {
 	}
 }
 
+func TestStoreLoadReturnsDefaultForEmptyFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	store := NewStore(path)
+	cfg, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil", err)
+	}
+	if cfg.Output.Default != "table" {
+		t.Fatalf("loaded output = %q, want table", cfg.Output.Default)
+	}
+}
+
 func TestStoreLoadMergesPartialConfigWithDefaults(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	if err := os.WriteFile(path, []byte("task:\n  default_project: Work\n"), 0o600); err != nil {

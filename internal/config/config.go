@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -58,6 +59,9 @@ func (s *Store) Load() (Config, error) {
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&cfg); err != nil {
+		if errors.Is(err, io.EOF) {
+			return cfg, nil
+		}
 		return Config{}, err
 	}
 	return cfg, nil
