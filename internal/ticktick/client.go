@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type Client struct {
@@ -29,7 +30,7 @@ func New(baseURL string, httpClient *http.Client) *Client {
 		baseURL = "https://api.ticktick.com"
 	}
 	if httpClient == nil {
-		httpClient = http.DefaultClient
+		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 	return &Client{
 		BaseURL:    strings.TrimRight(baseURL, "/"),
@@ -75,5 +76,12 @@ func (c *Client) DoJSON(ctx context.Context, method, path, token string, in, out
 	if out == nil {
 		return nil
 	}
-	return json.NewDecoder(resp.Body).Decode(out)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if len(bytes.TrimSpace(data)) == 0 {
+		return nil
+	}
+	return json.Unmarshal(data, out)
 }
