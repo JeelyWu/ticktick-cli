@@ -17,6 +17,7 @@ const (
 	clientSecretKey      = "oauth-client-secret"
 	fallbackFileName     = "auth-fallback.json"
 	fallbackStorageLabel = "less-secure-file-fallback"
+	tempFallbackDirName  = "tick-auth-fallback"
 )
 
 var ErrNotAuthenticated = domain.ErrNotAuthenticated
@@ -177,7 +178,7 @@ func (s KeyringStore) fallbackPath() (string, error) {
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
-		return "", fmt.Errorf("system keyring unavailable and less-secure fallback file path could not be resolved: %w", err)
+		return filepath.Join(os.TempDir(), tempFallbackDirName, fallbackFileName), nil
 	}
 	return filepath.Join(dir, "tick", fallbackFileName), nil
 }

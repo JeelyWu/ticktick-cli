@@ -125,3 +125,46 @@ func TestKeyringStoreLoadTokenReturnsClearErrorWhenKeyringUnavailableAndFallback
 		t.Fatalf("error = %q, want fallback path", err)
 	}
 }
+
+func TestKeyringStoreLoadTokenUsesTempDirFallbackWhenUserConfigDirUnavailable(t *testing.T) {
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+
+	store := KeyringStore{
+		Backend: &fakeKeyringBackend{
+			getErr: errors.New("dbus-launch: no secret service"),
+		},
+	}
+
+	_, err := store.LoadToken()
+	if err == nil {
+		t.Fatal("LoadToken() error = nil, want non-nil")
+	}
+	if strings.Contains(err.Error(), "could not be resolved") {
+		t.Fatalf("error = %q, want temp-dir fallback guidance instead", err)
+	}
+	if !strings.Contains(err.Error(), "less-secure fallback file") {
+		t.Fatalf("error = %q, want fallback guidance", err)
+	}
+	if !strings.Contains(err.Error(), os.TempDir()) {
+		t.Fatalf("error = %q, want temp-dir path", err)
+	}
+	if !strings.Contains(err.Error(), "auth-fallback") {
+		t.Fatalf("error = %q, want auth-fallback path", err)
+	}
+}
+
+func TestKeyringStoreDeleteTokenSucceedsWhenUsingTempDirFallback(t *testing.T) {
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+
+	store := KeyringStore{
+		Backend: &fakeKeyringBackend{
+			deleteErr: errors.New("dbus-launch: no secret service"),
+		},
+	}
+
+	if err := store.DeleteToken(); err != nil {
+		t.Fatalf("DeleteToken() error = %v, want nil", err)
+	}
+}
