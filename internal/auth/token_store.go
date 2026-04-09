@@ -29,6 +29,7 @@ type TokenStore interface {
 	DeleteToken() error
 	SaveClientSecret(string) error
 	LoadClientSecret() (string, error)
+	DeleteClientSecret() error
 }
 
 type KeyringStore struct{}
@@ -76,4 +77,11 @@ func (KeyringStore) LoadClientSecret() (string, error) {
 		return "", err
 	}
 	return value, nil
+}
+
+func (KeyringStore) DeleteClientSecret() error {
+	if err := keyring.Delete(keyringService, clientSecretKey); err != nil && !errors.Is(err, keyring.ErrNotFound) {
+		return err
+	}
+	return nil
 }

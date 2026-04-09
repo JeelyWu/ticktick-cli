@@ -46,11 +46,16 @@ func (s Service) Login(ctx context.Context, in LoginInput) (Token, error) {
 	}, state)
 	if s.Browser != nil {
 		if err := s.Browser.OpenURL(url); err != nil {
-			return Token{}, err
+			_, _ = fmt.Fprintln(s.Out, "Could not open browser automatically. Open this URL manually:")
+			_, _ = fmt.Fprintln(s.Out, url)
+		} else {
+			_, _ = fmt.Fprintln(s.Out, "Open this URL in your browser if it did not open automatically:")
+			_, _ = fmt.Fprintln(s.Out, url)
 		}
+	} else {
+		_, _ = fmt.Fprintln(s.Out, "Open this URL in your browser if it did not open automatically:")
+		_, _ = fmt.Fprintln(s.Out, url)
 	}
-	_, _ = fmt.Fprintln(s.Out, "Open this URL in your browser if it did not open automatically:")
-	_, _ = fmt.Fprintln(s.Out, url)
 	_, _ = fmt.Fprint(s.Out, "Paste the authorization code: ")
 
 	code, err := bufio.NewReader(s.In).ReadString('\n')
@@ -89,7 +94,16 @@ func (s Service) Status(ctx context.Context) (Status, error) {
 }
 
 func (s Service) Logout(ctx context.Context) error {
-	return s.Store.DeleteToken()
+	tokenErr := s.Store.DeleteToken()
+	secretErr := s.Store.DeleteClientSecret()
+
+	if tokenErr != nil && !errors.Is(tokenErr, ErrNotAuthenticated) {
+		return tokenErr
+	}
+	if secretErr != nil && !errors.Is(secretErr, ErrNotAuthenticated) {
+		return secretErr
+	}
+	return nil
 }
 
 func (s Service) AccessToken(ctx context.Context) (string, error) {

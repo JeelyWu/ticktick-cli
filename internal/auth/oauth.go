@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -57,9 +59,16 @@ func (e Exchanger) ExchangeCode(ctx context.Context, cfg OAuthConfig, code strin
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return Token{}, fmt.Errorf("oauth token exchange failed: %s", resp.Status)
+	}
+
 	var token Token
 	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
 		return Token{}, err
+	}
+	if token.AccessToken == "" {
+		return Token{}, errors.New("oauth token response missing access_token")
 	}
 	return token, nil
 }

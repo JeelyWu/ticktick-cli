@@ -1,0 +1,155 @@
+package auth
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+type stubBrowser struct {
+	err  error
+	urls []string
+}
+
+func (b *stubBrowser) OpenURL(url string) error {
+	b.urls = append(b.urls, url)
+	return b.err
+}
+
+type memoryTokenStore struct {
+	token             Token
+	clientSecret      string
+	saveTokenCalls    int
+	saveSecretCalls   int
+	deleteTokenCalls  int
+	deleteSecretCalls int
+}
+
+func (s *memoryTokenStore) SaveToken(token Token) error {
+	s.saveTokenCalls++
+	s.token = token
+	return nil
+}
+
+func (s *memoryTokenStore) LoadToken() (Token, error) {
+	if s.token.AccessToken == "" && s.token.RefreshToken == "" && s.token.TokenType == "" && s.token.Scope == "" {
+		return Token{}, ErrNotAuthenticated
+	}
+	return s.token, nil
+}
+
+func (s *memoryTokenStore) DeleteToken() error {
+	s.deleteTokenCalls++
+	s.token = Token{}
+	return nil
+}
+
+func (s *memoryTokenStore) SaveClientSecret(secret string) error {
+	s.saveSecretCalls++
+	s.clientSecret = secret
+	return nil
+}
+
+func (s *memoryTokenStore) LoadClientSecret() (string, error) {
+	if s.clientSecret == "" {
+		return "", ErrNotAuthenticated
+	}
+	return s.clientSecret, nil
+}
+
+func (s *memoryTokenStore) DeleteClientSecret() error {
+	s.deleteSecretCalls++
+	s.clientSecret = ""
+	return nil
+}
+
+type deleteErrorStore struct {
+	tokenErr  error
+	secretErr error
+}
+
+func (s deleteErrorStore) SaveToken(Token) error             { return nil }
+func (s deleteErrorStore) LoadToken() (Token, error)         { return Token{}, ErrNotAuthenticated }
+func (s deleteErrorStore) DeleteToken() error                { return s.tokenErr }
+func (s deleteErrorStore) SaveClientSecret(string) error     { return nil }
+func (s deleteErrorStore) LoadClientSecret() (string, error) { return "", ErrNotAuthenticated }
+func (s deleteErrorStore) DeleteClientSecret() error         { return s.secretErr }
+
+func TestServiceLoginContinuesWhenBrowserOpenFails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"access-1","refresh_token":"refresh-1","token_type":"Bearer"}`))
+	}))
+	defer server.Close()
+
+	store := &memoryTokenStore{}
+	browser := &stubBrowser{err: errors.New("browser unavailable")}
+	out := &bytes.Buffer{}
+
+	token, err := Service{
+		Exchanger: Exchanger{
+			HTTPClient: server.Client(),
+			TokenURL:   server.URL,
+		},
+		Store:   store,
+		Browser: browser,
+		In:      strings.NewReader("code-1\n"),
+		Out:     out,
+	}.Login(context.Background(), LoginInput{
+		ClientID:     "client-1",
+		ClientSecret: "secret-1",
+		RedirectURL:  "http://localhost:14573/callback",
+	})
+	if err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+	if token.AccessToken != "access-1" {
+		t.Fatalf("AccessToken = %q, want access-1", token.AccessToken)
+	}
+	if store.saveSecretCalls != 1 {
+		t.Fatalf("SaveClientSecret() calls = %d, want 1", store.saveSecretCalls)
+	}
+	if store.saveTokenCalls != 1 {
+		t.Fatalf("SaveToken() calls = %d, want 1", store.saveTokenCalls)
+	}
+	if len(browser.urls) != 1 {
+		t.Fatalf("OpenURL() calls = %d, want 1", len(browser.urls))
+	}
+	if !strings.Contains(out.String(), "Could not open browser automatically") {
+		t.Fatalf("output = %q, want browser fallback warning", out.String())
+	}
+	if !strings.Contains(out.String(), "https://ticktick.com/oauth/authorize?") {
+		t.Fatalf("output = %q, want authorize URL", out.String())
+	}
+}
+
+func TestServiceLogoutDeletesTokenAndClientSecret(t *testing.T) {
+	store := &memoryTokenStore{
+		token:        Token{AccessToken: "access-1"},
+		clientSecret: "secret-1",
+	}
+
+	service := Service{Store: store}
+	if err := service.Logout(context.Background()); err != nil {
+		t.Fatalf("Logout() error = %v", err)
+	}
+	if store.deleteTokenCalls != 1 {
+		t.Fatalf("DeleteToken() calls = %d, want 1", store.deleteTokenCalls)
+	}
+	if store.deleteSecretCalls != 1 {
+		t.Fatalf("DeleteClientSecret() calls = %d, want 1", store.deleteSecretCalls)
+	}
+}
+
+func TestServiceLogoutIgnoresNotAuthenticatedDeletes(t *testing.T) {
+	service := Service{Store: deleteErrorStore{
+		tokenErr:  ErrNotAuthenticated,
+		secretErr: ErrNotAuthenticated,
+	}}
+	if err := service.Logout(context.Background()); err != nil {
+		t.Fatalf("Logout() error = %v, want nil", err)
+	}
+}
