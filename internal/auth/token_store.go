@@ -80,19 +80,26 @@ func (s KeyringStore) LoadToken() (Token, error) {
 	value, err := s.backend().Get(keyringService, tokenKey)
 	if err != nil {
 		if errors.Is(err, errKeyringItemNotFound) {
+			credentials, found, err := s.loadFallbackIfPresent()
+			if err != nil {
+				return Token{}, err
+			}
+			if found && credentials.Token != nil {
+				return *credentials.Token, nil
+			}
 			return Token{}, ErrNotAuthenticated
 		}
 		if !isKeyringUnavailable(err) {
 			return Token{}, err
 		}
-		credentials, err := s.loadFallback()
+		credentials, found, err := s.loadFallbackIfPresent()
 		if err != nil {
 			return Token{}, err
 		}
-		if credentials.Token == nil {
-			return Token{}, ErrNotAuthenticated
+		if found && credentials.Token != nil {
+			return *credentials.Token, nil
 		}
-		return *credentials.Token, nil
+		return Token{}, s.fallbackGuidanceError()
 	}
 	var token Token
 	if err := json.Unmarshal([]byte(value), &token); err != nil {
@@ -103,10 +110,7 @@ func (s KeyringStore) LoadToken() (Token, error) {
 
 func (s KeyringStore) DeleteToken() error {
 	if err := s.backend().Delete(keyringService, tokenKey); err != nil {
-		if errors.Is(err, errKeyringItemNotFound) {
-			return nil
-		}
-		if !isKeyringUnavailable(err) {
+		if !errors.Is(err, errKeyringItemNotFound) && !isKeyringUnavailable(err) {
 			return err
 		}
 		return s.updateFallback(func(credentials *fallbackCredentials) {
@@ -133,29 +137,33 @@ func (s KeyringStore) LoadClientSecret() (string, error) {
 	value, err := s.backend().Get(keyringService, clientSecretKey)
 	if err != nil {
 		if errors.Is(err, errKeyringItemNotFound) {
+			credentials, found, err := s.loadFallbackIfPresent()
+			if err != nil {
+				return "", err
+			}
+			if found && credentials.ClientSecret != "" {
+				return credentials.ClientSecret, nil
+			}
 			return "", ErrNotAuthenticated
 		}
 		if !isKeyringUnavailable(err) {
 			return "", err
 		}
-		credentials, err := s.loadFallback()
+		credentials, found, err := s.loadFallbackIfPresent()
 		if err != nil {
 			return "", err
 		}
-		if credentials.ClientSecret == "" {
-			return "", ErrNotAuthenticated
+		if found && credentials.ClientSecret != "" {
+			return credentials.ClientSecret, nil
 		}
-		return credentials.ClientSecret, nil
+		return "", s.fallbackGuidanceError()
 	}
 	return value, nil
 }
 
 func (s KeyringStore) DeleteClientSecret() error {
 	if err := s.backend().Delete(keyringService, clientSecretKey); err != nil {
-		if errors.Is(err, errKeyringItemNotFound) {
-			return nil
-		}
-		if !isKeyringUnavailable(err) {
+		if !errors.Is(err, errKeyringItemNotFound) && !isKeyringUnavailable(err) {
 			return err
 		}
 		return s.updateFallback(func(credentials *fallbackCredentials) {
@@ -183,19 +191,27 @@ func (s KeyringStore) fallbackPath() (string, error) {
 	return filepath.Join(dir, "tick", fallbackFileName), nil
 }
 
-func (s KeyringStore) loadFallback() (fallbackCredentials, error) {
+func (s KeyringStore) loadFallbackIfPresent() (fallbackCredentials, bool, error) {
 	path, err := s.fallbackPath()
 	if err != nil {
-		return fallbackCredentials{}, err
+		return fallbackCredentials{}, false, err
 	}
 	credentials, err := readFallbackFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return fallbackCredentials{}, fmt.Errorf("system keyring unavailable; run `tick auth login` to use the less-secure fallback file at %s", path)
+			return fallbackCredentials{}, false, nil
 		}
-		return fallbackCredentials{}, err
+		return fallbackCredentials{}, false, err
 	}
-	return credentials, nil
+	return credentials, true, nil
+}
+
+func (s KeyringStore) fallbackGuidanceError() error {
+	path, err := s.fallbackPath()
+	if err != nil {
+		return err
+	}
+	return fmt.Errorf("system keyring unavailable; run `tick auth login` to use the less-secure fallback file at %s", path)
 }
 
 func (s KeyringStore) updateFallback(update func(*fallbackCredentials)) error {

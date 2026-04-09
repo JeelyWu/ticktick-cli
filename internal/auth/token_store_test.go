@@ -168,3 +168,71 @@ func TestKeyringStoreDeleteTokenSucceedsWhenUsingTempDirFallback(t *testing.T) {
 		t.Fatalf("DeleteToken() error = %v, want nil", err)
 	}
 }
+
+func TestKeyringStoreUsesFallbackWhenKeyringItemIsNotFound(t *testing.T) {
+	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
+	store := KeyringStore{
+		Backend: &fakeKeyringBackend{},
+		FallbackPath: func() (string, error) {
+			return fallbackPath, nil
+		},
+	}
+
+	if err := writeFallbackFile(fallbackPath, fallbackCredentials{
+		Storage: fallbackStorageLabel,
+		Token: &Token{
+			AccessToken: "access-from-fallback",
+		},
+		ClientSecret: "secret-from-fallback",
+	}); err != nil {
+		t.Fatalf("writeFallbackFile() error = %v", err)
+	}
+
+	token, err := store.LoadToken()
+	if err != nil {
+		t.Fatalf("LoadToken() error = %v", err)
+	}
+	if token.AccessToken != "access-from-fallback" {
+		t.Fatalf("AccessToken = %q, want access-from-fallback", token.AccessToken)
+	}
+
+	secret, err := store.LoadClientSecret()
+	if err != nil {
+		t.Fatalf("LoadClientSecret() error = %v", err)
+	}
+	if secret != "secret-from-fallback" {
+		t.Fatalf("client secret = %q, want secret-from-fallback", secret)
+	}
+}
+
+func TestKeyringStoreDeleteRemovesFallbackWhenKeyringItemIsNotFound(t *testing.T) {
+	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
+	store := KeyringStore{
+		Backend: &fakeKeyringBackend{
+			deleteErr: errKeyringItemNotFound,
+		},
+		FallbackPath: func() (string, error) {
+			return fallbackPath, nil
+		},
+	}
+
+	if err := writeFallbackFile(fallbackPath, fallbackCredentials{
+		Storage: fallbackStorageLabel,
+		Token: &Token{
+			AccessToken: "access-from-fallback",
+		},
+		ClientSecret: "secret-from-fallback",
+	}); err != nil {
+		t.Fatalf("writeFallbackFile() error = %v", err)
+	}
+
+	if err := store.DeleteToken(); err != nil {
+		t.Fatalf("DeleteToken() error = %v", err)
+	}
+	if err := store.DeleteClientSecret(); err != nil {
+		t.Fatalf("DeleteClientSecret() error = %v", err)
+	}
+	if _, err := os.Stat(fallbackPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Stat() error = %v, want not exist", err)
+	}
+}
