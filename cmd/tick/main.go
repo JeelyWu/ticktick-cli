@@ -29,7 +29,7 @@ func main() {
 	cmd := cli.NewRootCommand(cli.RootOptions{
 		Version: version,
 		Streams: streams,
-		AuthResolver: func() (*app.AuthApp, error) {
+		LoginAuthResolver: func() (*app.AuthApp, error) {
 			configPath, err := config.DefaultPath()
 			if err != nil {
 				return nil, err
@@ -43,6 +43,14 @@ func main() {
 					In:      streams.In,
 					Out:     streams.Out,
 				},
+			}, nil
+		},
+		AuthServiceResolver: func() (app.AuthService, error) {
+			return auth.Service{
+				Store:   auth.KeyringStore{},
+				Browser: browserOpener{},
+				In:      streams.In,
+				Out:     streams.Out,
 			}, nil
 		},
 	})

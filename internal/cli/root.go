@@ -8,11 +8,13 @@ import (
 )
 
 type AuthResolver func() (*app.AuthApp, error)
+type AuthServiceResolver func() (app.AuthService, error)
 
 type RootOptions struct {
-	Version      string
-	Streams      Streams
-	AuthResolver AuthResolver
+	Version             string
+	Streams             Streams
+	LoginAuthResolver   AuthResolver
+	AuthServiceResolver AuthServiceResolver
 }
 
 func NewRootCommand(opts RootOptions) *cobra.Command {
@@ -29,8 +31,8 @@ func NewRootCommand(opts RootOptions) *cobra.Command {
 	cmd.SetOut(opts.Streams.Out)
 	cmd.SetErr(opts.Streams.ErrOut)
 	cmd.AddCommand(newVersionCommand(opts))
-	if opts.AuthResolver != nil {
-		cmd.AddCommand(NewAuthCommand(opts.AuthResolver, opts.Streams))
+	if opts.LoginAuthResolver != nil || opts.AuthServiceResolver != nil {
+		cmd.AddCommand(NewAuthCommand(opts.LoginAuthResolver, opts.AuthServiceResolver, opts.Streams))
 	}
 	return cmd
 }

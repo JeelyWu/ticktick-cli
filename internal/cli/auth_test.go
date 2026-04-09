@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -12,8 +13,9 @@ import (
 )
 
 type recordingAuthService struct {
-	loginInput auth.LoginInput
-	status     auth.Status
+	loginInput  auth.LoginInput
+	status      auth.Status
+	logoutCalls int
 }
 
 func (r *recordingAuthService) Login(_ context.Context, in auth.LoginInput) (auth.Token, error) {
@@ -26,6 +28,7 @@ func (r *recordingAuthService) Status(context.Context) (auth.Status, error) {
 }
 
 func (r *recordingAuthService) Logout(context.Context) error {
+	r.logoutCalls++
 	return nil
 }
 
@@ -39,7 +42,7 @@ func TestAuthLoginUsesClientSecretFromEnvironment(t *testing.T) {
 			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
 			Service:     service,
 		}, nil
-	}, streams)
+	}, nil, streams)
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
 	cmd.SetErr(streams.ErrOut)
@@ -70,7 +73,7 @@ func TestAuthLoginHelpMentionsEnvironmentFallback(t *testing.T) {
 			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
 			Service:     &recordingAuthService{},
 		}, nil
-	}, streams)
+	}, nil, streams)
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
 	cmd.SetErr(streams.ErrOut)
@@ -97,7 +100,7 @@ func TestAuthLoginFlagOverridesEnvironment(t *testing.T) {
 			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
 			Service:     service,
 		}, nil
-	}, streams)
+	}, nil, streams)
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
 	cmd.SetErr(streams.ErrOut)
@@ -125,7 +128,7 @@ func TestAuthLoginWithoutEnvOrFlagStillFails(t *testing.T) {
 			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
 			Service:     &recordingAuthService{},
 		}, nil
-	}, streams)
+	}, nil, streams)
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
 	cmd.SetErr(streams.ErrOut)
@@ -146,9 +149,13 @@ func TestAuthLoginWithoutEnvOrFlagStillFails(t *testing.T) {
 
 func TestAuthHelpDoesNotResolveAuthApp(t *testing.T) {
 	streams, stdout, stderr := newTestStreams()
-	resolved := 0
+	loginResolved := 0
+	serviceResolved := 0
 	cmd := NewAuthCommand(func() (*app.AuthApp, error) {
-		resolved++
+		loginResolved++
+		return nil, nil
+	}, func() (app.AuthService, error) {
+		serviceResolved++
 		return nil, nil
 	}, streams)
 	cmd.SetIn(streams.In)
@@ -159,8 +166,11 @@ func TestAuthHelpDoesNotResolveAuthApp(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	if resolved != 0 {
-		t.Fatalf("resolver calls = %d, want 0", resolved)
+	if loginResolved != 0 {
+		t.Fatalf("login resolver calls = %d, want 0", loginResolved)
+	}
+	if serviceResolved != 0 {
+		t.Fatalf("service resolver calls = %d, want 0", serviceResolved)
 	}
 	if !strings.Contains(stdout.String(), "Authenticate with TickTick") {
 		t.Fatalf("help output = %q, want auth help", stdout.String())
@@ -170,16 +180,22 @@ func TestAuthHelpDoesNotResolveAuthApp(t *testing.T) {
 	}
 }
 
-func TestAuthStatusResolvesAuthAppWhenExecuted(t *testing.T) {
+func TestAuthStatusUsesServiceResolverWithoutResolvingLoginApp(t *testing.T) {
 	streams, stdout, stderr := newTestStreams()
-	resolved := 0
+	loginResolved := 0
+	serviceResolved := 0
 	cmd := NewAuthCommand(func() (*app.AuthApp, error) {
-		resolved++
+		loginResolved++
 		return &app.AuthApp{
 			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
 			Service: &recordingAuthService{
 				status: auth.Status{Authenticated: true},
 			},
+		}, nil
+	}, func() (app.AuthService, error) {
+		serviceResolved++
+		return &recordingAuthService{
+			status: auth.Status{Authenticated: true},
 		}, nil
 	}, streams)
 	cmd.SetIn(streams.In)
@@ -190,11 +206,51 @@ func TestAuthStatusResolvesAuthAppWhenExecuted(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	if resolved != 1 {
-		t.Fatalf("resolver calls = %d, want 1", resolved)
+	if loginResolved != 0 {
+		t.Fatalf("login resolver calls = %d, want 0", loginResolved)
+	}
+	if serviceResolved != 1 {
+		t.Fatalf("service resolver calls = %d, want 1", serviceResolved)
 	}
 	if got := strings.TrimSpace(stdout.String()); got != "authenticated" {
 		t.Fatalf("stdout = %q, want authenticated", got)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestAuthLogoutUsesServiceResolverWithoutResolvingLoginApp(t *testing.T) {
+	streams, stdout, stderr := newTestStreams()
+	loginResolved := 0
+	serviceResolved := 0
+	service := &recordingAuthService{}
+	cmd := NewAuthCommand(func() (*app.AuthApp, error) {
+		loginResolved++
+		return nil, errors.New("login resolver should not run")
+	}, func() (app.AuthService, error) {
+		serviceResolved++
+		return service, nil
+	}, streams)
+	cmd.SetIn(streams.In)
+	cmd.SetOut(streams.Out)
+	cmd.SetErr(streams.ErrOut)
+	cmd.SetArgs([]string{"logout"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if loginResolved != 0 {
+		t.Fatalf("login resolver calls = %d, want 0", loginResolved)
+	}
+	if serviceResolved != 1 {
+		t.Fatalf("service resolver calls = %d, want 1", serviceResolved)
+	}
+	if service.logoutCalls != 1 {
+		t.Fatalf("Logout() calls = %d, want 1", service.logoutCalls)
+	}
+	if got := strings.TrimSpace(stdout.String()); got != "Logged out" {
+		t.Fatalf("stdout = %q, want Logged out", got)
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())

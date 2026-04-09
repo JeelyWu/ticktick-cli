@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewAuthCommand(resolveAuthApp AuthResolver, streams Streams) *cobra.Command {
+func NewAuthCommand(resolveAuthApp AuthResolver, resolveAuthService AuthServiceResolver, streams Streams) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "auth",
 		Short: "Authenticate with TickTick",
@@ -21,6 +22,9 @@ func NewAuthCommand(resolveAuthApp AuthResolver, streams Streams) *cobra.Command
 		Use:   "login",
 		Short: "Start the TickTick OAuth login flow",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if resolveAuthApp == nil {
+				return errors.New("auth login is unavailable")
+			}
 			authApp, err := resolveAuthApp()
 			if err != nil {
 				return err
@@ -48,11 +52,14 @@ func NewAuthCommand(resolveAuthApp AuthResolver, streams Streams) *cobra.Command
 		Use:   "status",
 		Short: "Show authentication status",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			authApp, err := resolveAuthApp()
+			if resolveAuthService == nil {
+				return errors.New("auth status is unavailable")
+			}
+			authService, err := resolveAuthService()
 			if err != nil {
 				return err
 			}
-			status, err := authApp.Status(cmd.Context())
+			status, err := authService.Status(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -67,13 +74,16 @@ func NewAuthCommand(resolveAuthApp AuthResolver, streams Streams) *cobra.Command
 
 	logout := &cobra.Command{
 		Use:   "logout",
-		Short: "Delete the stored TickTick token",
+		Short: "Delete stored TickTick credentials",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			authApp, err := resolveAuthApp()
+			if resolveAuthService == nil {
+				return errors.New("auth logout is unavailable")
+			}
+			authService, err := resolveAuthService()
 			if err != nil {
 				return err
 			}
-			if err := authApp.Logout(cmd.Context()); err != nil {
+			if err := authService.Logout(cmd.Context()); err != nil {
 				return err
 			}
 			_, err = fmt.Fprintln(streams.Out, "Logged out")
