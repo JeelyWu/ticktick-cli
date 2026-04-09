@@ -3,12 +3,14 @@ package cli
 import (
 	"fmt"
 
+	"github.com/jeely/ticktick-cli/internal/app"
 	"github.com/spf13/cobra"
 )
 
 type RootOptions struct {
 	Version string
 	Streams Streams
+	AuthApp *app.AuthApp
 }
 
 func NewRootCommand(opts RootOptions) *cobra.Command {
@@ -25,6 +27,9 @@ func NewRootCommand(opts RootOptions) *cobra.Command {
 	cmd.SetOut(opts.Streams.Out)
 	cmd.SetErr(opts.Streams.ErrOut)
 	cmd.AddCommand(newVersionCommand(opts))
+	if opts.AuthApp != nil {
+		cmd.AddCommand(NewAuthCommand(opts.AuthApp, opts.Streams))
+	}
 	return cmd
 }
 
