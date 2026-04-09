@@ -17,6 +17,9 @@ func NewRootCommand(opts RootOptions) *cobra.Command {
 		Short:         "TickTick CLI",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		CompletionOptions: cobra.CompletionOptions{
+			DisableDefaultCmd: true,
+		},
 	}
 	cmd.SetIn(opts.Streams.In)
 	cmd.SetOut(opts.Streams.Out)

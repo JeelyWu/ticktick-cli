@@ -30,6 +30,9 @@ func TestRootCommandHelp(t *testing.T) {
 	if !strings.Contains(stdout.String(), "TickTick CLI") {
 		t.Fatalf("help output = %q, want TickTick CLI", stdout.String())
 	}
+	if strings.Contains(stdout.String(), "completion") {
+		t.Fatalf("help output = %q, want no completion command", stdout.String())
+	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
