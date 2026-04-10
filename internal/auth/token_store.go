@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"os/user"
+	"path/filepath"
 	"runtime"
 	"strings"
 

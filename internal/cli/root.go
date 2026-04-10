@@ -9,12 +9,14 @@ import (
 
 type AuthResolver func() (*app.AuthApp, error)
 type AuthServiceResolver func() (app.AuthService, error)
+type ProjectResolver func() (*app.ProjectApp, error)
 
 type RootOptions struct {
 	Version             string
 	Streams             Streams
 	LoginAuthResolver   AuthResolver
 	AuthServiceResolver AuthServiceResolver
+	ProjectResolver     ProjectResolver
 }
 
 func NewRootCommand(opts RootOptions) *cobra.Command {
@@ -33,6 +35,9 @@ func NewRootCommand(opts RootOptions) *cobra.Command {
 	cmd.AddCommand(newVersionCommand(opts))
 	if opts.LoginAuthResolver != nil || opts.AuthServiceResolver != nil {
 		cmd.AddCommand(NewAuthCommand(opts.LoginAuthResolver, opts.AuthServiceResolver, opts.Streams))
+	}
+	if opts.ProjectResolver != nil {
+		cmd.AddCommand(NewProjectCommand(opts.ProjectResolver, opts.Streams))
 	}
 	return cmd
 }

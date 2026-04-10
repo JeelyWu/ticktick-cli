@@ -8,6 +8,7 @@ import (
 	"github.com/jeely/ticktick-cli/internal/auth"
 	"github.com/jeely/ticktick-cli/internal/cli"
 	"github.com/jeely/ticktick-cli/internal/config"
+	"github.com/jeely/ticktick-cli/internal/ticktick"
 	"github.com/pkg/browser"
 )
 
@@ -55,6 +56,18 @@ func main() {
 				Browser: browserOpener{},
 				In:      streams.In,
 				Out:     streams.Out,
+			}, nil
+		},
+		ProjectResolver: func() (*app.ProjectApp, error) {
+			authService := auth.Service{
+				Store:   auth.KeyringStore{},
+				Browser: browserOpener{},
+				In:      streams.In,
+				Out:     streams.Out,
+			}
+			return &app.ProjectApp{
+				Auth:   authService,
+				Client: ticktick.New("", nil),
 			}, nil
 		},
 	})

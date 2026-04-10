@@ -28,11 +28,11 @@ type Status struct {
 }
 
 type Service struct {
-	Exchanger Exchanger
-	Store     TokenStore
-	Browser   Browser
-	In        io.Reader
-	Out       io.Writer
+	Exchanger   Exchanger
+	Store       TokenStore
+	Browser     Browser
+	In          io.Reader
+	Out         io.Writer
 	StateSource func() string
 }
 
