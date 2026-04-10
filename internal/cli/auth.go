@@ -21,6 +21,7 @@ func NewAuthCommand(resolveAuthApp AuthResolver, resolveAuthService AuthServiceR
 	login := &cobra.Command{
 		Use:   "login",
 		Short: "Start the TickTick OAuth login flow",
+		Long:  "Start the TickTick OAuth login flow. Prefer setting TICK_CLIENT_SECRET instead of passing secrets on the command line.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if resolveAuthApp == nil {
 				return errors.New("auth login is unavailable")
@@ -47,6 +48,8 @@ func NewAuthCommand(resolveAuthApp AuthResolver, resolveAuthService AuthServiceR
 	login.Flags().StringVar(&clientID, "client-id", "", "TickTick OAuth client ID")
 	login.Flags().StringVar(&clientSecret, "client-secret", "", "TickTick OAuth client secret (defaults to TICK_CLIENT_SECRET)")
 	login.Flags().StringVar(&redirectURL, "redirect-url", "", "TickTick OAuth redirect URL")
+	_ = login.Flags().MarkDeprecated("client-secret", "prefer TICK_CLIENT_SECRET to avoid exposing secrets in shell history")
+	_ = login.Flags().MarkHidden("client-secret")
 
 	status := &cobra.Command{
 		Use:   "status",

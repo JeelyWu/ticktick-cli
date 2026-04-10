@@ -84,6 +84,10 @@ func (s Service) Login(ctx context.Context, in LoginInput) (Token, error) {
 		return Token{}, err
 	}
 	if err := s.Store.SaveToken(token); err != nil {
+		rollbackErr := s.Store.DeleteClientSecret()
+		if rollbackErr != nil && !errors.Is(rollbackErr, ErrNotAuthenticated) {
+			return Token{}, fmt.Errorf("%w; rollback client secret: %v", err, rollbackErr)
+		}
 		return Token{}, err
 	}
 	if reporter, ok := s.Store.(fallbackPathReporter); ok {

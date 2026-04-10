@@ -29,10 +29,14 @@ type memoryTokenStore struct {
 	saveSecretCalls   int
 	deleteTokenCalls  int
 	deleteSecretCalls int
+	saveTokenErr      error
 }
 
 func (s *memoryTokenStore) SaveToken(token Token) error {
 	s.saveTokenCalls++
+	if s.saveTokenErr != nil {
+		return s.saveTokenErr
+	}
 	s.token = token
 	return nil
 }
@@ -170,6 +174,45 @@ func TestServiceLoginWarnsWhenLessSecureFallbackFileIsUsed(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), fallbackPath) {
 		t.Fatalf("output = %q, want fallback path", out.String())
+	}
+}
+
+func TestServiceLoginRollsBackClientSecretWhenSavingTokenFails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"access-1","refresh_token":"refresh-1","token_type":"Bearer"}`))
+	}))
+	defer server.Close()
+
+	state := "state-1"
+	store := &memoryTokenStore{
+		saveTokenErr: errors.New("token store failed"),
+	}
+
+	_, err := Service{
+		Exchanger: Exchanger{
+			HTTPClient: server.Client(),
+			TokenURL:   server.URL,
+		},
+		Store:       store,
+		In:          strings.NewReader("http://localhost:14573/callback?code=code-1&state=" + state + "\n"),
+		Out:         &bytes.Buffer{},
+		StateSource: func() string { return state },
+	}.Login(context.Background(), LoginInput{
+		ClientID:     "client-1",
+		ClientSecret: "secret-1",
+		RedirectURL:  "http://localhost:14573/callback",
+	})
+	if err == nil {
+		t.Fatal("Login() error = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "token store failed") {
+		t.Fatalf("error = %q, want token store failure", err)
+	}
+	if store.deleteSecretCalls != 1 {
+		t.Fatalf("DeleteClientSecret() calls = %d, want 1", store.deleteSecretCalls)
+	}
+	if store.clientSecret != "" {
+		t.Fatalf("client secret = %q, want cleared", store.clientSecret)
 	}
 }
 

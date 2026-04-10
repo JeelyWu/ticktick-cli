@@ -85,6 +85,9 @@ func TestAuthLoginHelpMentionsEnvironmentFallback(t *testing.T) {
 	if !strings.Contains(stdout.String(), "TICK_CLIENT_SECRET") {
 		t.Fatalf("help output = %q, want TICK_CLIENT_SECRET", stdout.String())
 	}
+	if strings.Contains(stdout.String(), "--client-secret") {
+		t.Fatalf("help output = %q, want client-secret flag hidden", stdout.String())
+	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
