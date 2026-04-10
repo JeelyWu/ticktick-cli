@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -85,6 +86,8 @@ func TestServiceLoginContinuesWhenBrowserOpenFails(t *testing.T) {
 	}))
 	defer server.Close()
 
+	state := "state-1"
+	callbackURL := "http://localhost:14573/callback?code=code-1&state=" + state
 	store := &memoryTokenStore{}
 	browser := &stubBrowser{err: errors.New("browser unavailable")}
 	out := &bytes.Buffer{}
@@ -94,10 +97,11 @@ func TestServiceLoginContinuesWhenBrowserOpenFails(t *testing.T) {
 			HTTPClient: server.Client(),
 			TokenURL:   server.URL,
 		},
-		Store:   store,
-		Browser: browser,
-		In:      strings.NewReader("code-1\n"),
-		Out:     out,
+		Store:       store,
+		Browser:     browser,
+		In:          strings.NewReader(callbackURL + "\n"),
+		Out:         out,
+		StateSource: func() string { return state },
 	}.Login(context.Background(), LoginInput{
 		ClientID:     "client-1",
 		ClientSecret: "secret-1",
@@ -123,6 +127,85 @@ func TestServiceLoginContinuesWhenBrowserOpenFails(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "https://ticktick.com/oauth/authorize?") {
 		t.Fatalf("output = %q, want authorize URL", out.String())
+	}
+}
+
+func TestServiceLoginRejectsMismatchedState(t *testing.T) {
+	store := &memoryTokenStore{}
+
+	_, err := Service{
+		Store:       store,
+		In:          strings.NewReader("http://localhost:14573/callback?code=code-1&state=wrong-state\n"),
+		Out:         &bytes.Buffer{},
+		StateSource: func() string { return "state-1" },
+	}.Login(context.Background(), LoginInput{
+		ClientID:     "client-1",
+		ClientSecret: "secret-1",
+		RedirectURL:  "http://localhost:14573/callback",
+	})
+	if err == nil {
+		t.Fatal("Login() error = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "state mismatch") {
+		t.Fatalf("error = %q, want state mismatch", err)
+	}
+	if store.saveTokenCalls != 0 {
+		t.Fatalf("SaveToken() calls = %d, want 0", store.saveTokenCalls)
+	}
+}
+
+func TestServiceLoginAcceptsCallbackURLWithoutTrailingNewline(t *testing.T) {
+	var exchangedCode string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm() error = %v", err)
+		}
+		exchangedCode = r.PostForm.Get("code")
+		_, _ = w.Write([]byte(`{"access_token":"access-1","refresh_token":"refresh-1","token_type":"Bearer"}`))
+	}))
+	defer server.Close()
+
+	state := "state-1"
+	callbackURL := "http://localhost:14573/callback?code=code-1&state=" + state
+	store := &memoryTokenStore{}
+
+	token, err := Service{
+		Exchanger: Exchanger{
+			HTTPClient: server.Client(),
+			TokenURL:   server.URL,
+		},
+		Store:       store,
+		In:          strings.NewReader(callbackURL),
+		Out:         &bytes.Buffer{},
+		StateSource: func() string { return state },
+	}.Login(context.Background(), LoginInput{
+		ClientID:     "client-1",
+		ClientSecret: "secret-1",
+		RedirectURL:  "http://localhost:14573/callback",
+	})
+	if err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+	if token.AccessToken != "access-1" {
+		t.Fatalf("AccessToken = %q, want access-1", token.AccessToken)
+	}
+	if exchangedCode != "code-1" {
+		t.Fatalf("exchanged code = %q, want code-1", exchangedCode)
+	}
+}
+
+func TestBuildAuthorizeURLIncludesSuppliedState(t *testing.T) {
+	got := BuildAuthorizeURL(OAuthConfig{
+		ClientID:    "client-1",
+		RedirectURL: "http://localhost:14573/callback",
+	}, "state-1")
+
+	parsed, err := url.Parse(got)
+	if err != nil {
+		t.Fatalf("url.Parse() error = %v", err)
+	}
+	if parsed.Query().Get("state") != "state-1" {
+		t.Fatalf("state = %q, want state-1", parsed.Query().Get("state"))
 	}
 }
 
