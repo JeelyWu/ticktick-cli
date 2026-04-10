@@ -77,9 +77,10 @@ func (s KeyringStore) SaveToken(token Token) error {
 	}
 	err = s.backend().Set(keyringService, tokenKey, string(data))
 	if err == nil {
-		return s.updateFallback(func(credentials *fallbackCredentials) {
+		s.cleanupFallbackBestEffort(func(credentials *fallbackCredentials) {
 			credentials.Token = nil
 		})
+		return nil
 	}
 	if !isKeyringUnavailable(err) {
 		return err
@@ -131,17 +132,19 @@ func (s KeyringStore) DeleteToken() error {
 			credentials.Token = nil
 		})
 	}
-	return s.updateFallback(func(credentials *fallbackCredentials) {
+	s.cleanupFallbackBestEffort(func(credentials *fallbackCredentials) {
 		credentials.Token = nil
 	})
+	return nil
 }
 
 func (s KeyringStore) SaveClientSecret(secret string) error {
 	err := s.backend().Set(keyringService, clientSecretKey, secret)
 	if err == nil {
-		return s.updateFallback(func(credentials *fallbackCredentials) {
+		s.cleanupFallbackBestEffort(func(credentials *fallbackCredentials) {
 			credentials.ClientSecret = ""
 		})
+		return nil
 	}
 	if !isKeyringUnavailable(err) {
 		return err
@@ -188,9 +191,10 @@ func (s KeyringStore) DeleteClientSecret() error {
 			credentials.ClientSecret = ""
 		})
 	}
-	return s.updateFallback(func(credentials *fallbackCredentials) {
+	s.cleanupFallbackBestEffort(func(credentials *fallbackCredentials) {
 		credentials.ClientSecret = ""
 	})
+	return nil
 }
 
 func (s KeyringStore) backend() keyringBackend {
@@ -268,6 +272,29 @@ func (s KeyringStore) updateFallback(update func(*fallbackCredentials)) error {
 	return writeFallbackFile(path, credentials)
 }
 
+func (s KeyringStore) cleanupFallbackBestEffort(update func(*fallbackCredentials)) {
+	path, err := s.fallbackPath()
+	if err != nil {
+		return
+	}
+	if err := ensurePrivateFallbackDir(filepath.Dir(path), false); err != nil {
+		return
+	}
+
+	credentials, err := readFallbackFile(path)
+	if err != nil {
+		return
+	}
+
+	update(&credentials)
+	if credentials.Token == nil && credentials.ClientSecret == "" {
+		_ = os.Remove(path)
+		return
+	}
+	credentials.Storage = fallbackStorageLabel
+	_ = writeFallbackFile(path, credentials)
+}
+
 func readFallbackFile(path string) (fallbackCredentials, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -332,10 +359,17 @@ func isKeyringUnavailable(err error) bool {
 	}
 
 	message := strings.ToLower(err.Error())
+	hasUnavailableSignal := strings.Contains(message, "not available") ||
+		strings.Contains(message, "unavailable")
+	hasPortableBackendSignal := strings.Contains(message, "credential manager") ||
+		strings.Contains(message, "credentials manager") ||
+		strings.Contains(message, "keychain") ||
+		strings.Contains(message, "keyring")
 	return strings.Contains(message, "org.freedesktop.secrets") ||
 		strings.Contains(message, "secret service not available") ||
 		strings.Contains(message, "no secret service") ||
-		strings.Contains(message, "dbus-launch")
+		strings.Contains(message, "dbus-launch") ||
+		(hasUnavailableSignal && hasPortableBackendSignal)
 }
 
 func ensurePrivateFallbackDir(path string, create bool) error {
