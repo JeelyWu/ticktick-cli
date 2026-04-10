@@ -28,11 +28,15 @@ type LoginInput struct {
 func (a AuthApp) Login(ctx context.Context, in LoginInput) error {
 	cfg := config.Default()
 	if a.ConfigStore != nil {
+		needsDefaults := in.ClientID == "" || in.RedirectURL == ""
 		loaded, err := a.ConfigStore.Load()
 		if err != nil {
-			return err
+			if needsDefaults {
+				return err
+			}
+		} else {
+			cfg = loaded
 		}
-		cfg = loaded
 	}
 	if in.ClientID == "" {
 		in.ClientID = cfg.OAuth.ClientID
@@ -43,20 +47,19 @@ func (a AuthApp) Login(ctx context.Context, in LoginInput) error {
 	if in.ClientID == "" || in.ClientSecret == "" || in.RedirectURL == "" {
 		return errors.New("login requires client-id, client-secret, and redirect-url")
 	}
+	if a.ConfigStore != nil {
+		cfg.OAuth.ClientID = in.ClientID
+		cfg.OAuth.RedirectURL = in.RedirectURL
+		if err := a.ConfigStore.Save(cfg); err != nil {
+			return err
+		}
+	}
 	_, err := a.Service.Login(ctx, auth.LoginInput{
 		ClientID:     in.ClientID,
 		ClientSecret: in.ClientSecret,
 		RedirectURL:  in.RedirectURL,
 	})
-	if err != nil {
-		return err
-	}
-	if a.ConfigStore == nil {
-		return nil
-	}
-	cfg.OAuth.ClientID = in.ClientID
-	cfg.OAuth.RedirectURL = in.RedirectURL
-	return a.ConfigStore.Save(cfg)
+	return err
 }
 
 func (a AuthApp) Status(ctx context.Context) (auth.Status, error) {
