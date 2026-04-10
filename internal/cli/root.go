@@ -19,6 +19,8 @@ type RootOptions struct {
 	AuthServiceResolver AuthServiceResolver
 	ProjectResolver     ProjectResolver
 	TaskResolver        TaskResolver
+	QuickResolver       QuickResolver
+	ConfigResolver      ConfigResolver
 }
 
 func NewRootCommand(opts RootOptions) *cobra.Command {
@@ -45,6 +47,12 @@ func NewRootCommand(opts RootOptions) *cobra.Command {
 		cmd.AddCommand(NewTaskCommand(opts.TaskResolver, opts.Streams))
 		cmd.AddCommand(NewTodayCommand(opts.TaskResolver, opts.Streams))
 		cmd.AddCommand(NewInboxCommand(opts.TaskResolver, opts.Streams))
+	}
+	if opts.QuickResolver != nil {
+		cmd.AddCommand(NewQuickCommand(opts.QuickResolver, opts.Streams))
+	}
+	if opts.ConfigResolver != nil {
+		cmd.AddCommand(NewConfigCommand(opts.ConfigResolver, opts.Streams))
 	}
 	return cmd
 }

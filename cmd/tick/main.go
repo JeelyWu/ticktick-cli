@@ -89,6 +89,39 @@ func main() {
 				ConfigStore: store,
 			}, nil
 		},
+		QuickResolver: func() (*app.QuickAddApp, error) {
+			authService := auth.Service{
+				Store:   auth.KeyringStore{},
+				Browser: browserOpener{},
+				In:      streams.In,
+				Out:     streams.Out,
+			}
+			api := ticktick.New("", nil)
+
+			var store *config.Store
+			if configPath, err := config.DefaultPath(); err == nil {
+				store = config.NewStore(configPath)
+			}
+
+			taskApp := &app.TaskApp{
+				Auth:        authService,
+				Client:      api,
+				ConfigStore: store,
+			}
+			return &app.QuickAddApp{
+				TaskApp:     taskApp,
+				ConfigStore: store,
+			}, nil
+		},
+		ConfigResolver: func() (*app.ConfigApp, error) {
+			configPath, err := config.DefaultPath()
+			if err != nil {
+				return nil, err
+			}
+			return &app.ConfigApp{
+				Store: config.NewStore(configPath),
+			}, nil
+		},
 	})
 
 	if err := cmd.Execute(); err != nil {
