@@ -65,7 +65,9 @@ func (s KeyringStore) SaveToken(token Token) error {
 	}
 	err = s.backend().Set(keyringService, tokenKey, string(data))
 	if err == nil {
-		return nil
+		return s.updateFallback(func(credentials *fallbackCredentials) {
+			credentials.Token = nil
+		})
 	}
 	if !isKeyringUnavailable(err) {
 		return err
@@ -117,13 +119,17 @@ func (s KeyringStore) DeleteToken() error {
 			credentials.Token = nil
 		})
 	}
-	return nil
+	return s.updateFallback(func(credentials *fallbackCredentials) {
+		credentials.Token = nil
+	})
 }
 
 func (s KeyringStore) SaveClientSecret(secret string) error {
 	err := s.backend().Set(keyringService, clientSecretKey, secret)
 	if err == nil {
-		return nil
+		return s.updateFallback(func(credentials *fallbackCredentials) {
+			credentials.ClientSecret = ""
+		})
 	}
 	if !isKeyringUnavailable(err) {
 		return err
@@ -170,7 +176,9 @@ func (s KeyringStore) DeleteClientSecret() error {
 			credentials.ClientSecret = ""
 		})
 	}
-	return nil
+	return s.updateFallback(func(credentials *fallbackCredentials) {
+		credentials.ClientSecret = ""
+	})
 }
 
 func (s KeyringStore) backend() keyringBackend {

@@ -236,3 +236,65 @@ func TestKeyringStoreDeleteRemovesFallbackWhenKeyringItemIsNotFound(t *testing.T
 		t.Fatalf("Stat() error = %v, want not exist", err)
 	}
 }
+
+func TestKeyringStoreSuccessfulKeyringWritesClearFallbackFile(t *testing.T) {
+	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
+	backend := &fakeKeyringBackend{}
+	store := KeyringStore{
+		Backend: backend,
+		FallbackPath: func() (string, error) {
+			return fallbackPath, nil
+		},
+	}
+
+	if err := writeFallbackFile(fallbackPath, fallbackCredentials{
+		Storage: fallbackStorageLabel,
+		Token: &Token{
+			AccessToken: "stale-access",
+		},
+		ClientSecret: "stale-secret",
+	}); err != nil {
+		t.Fatalf("writeFallbackFile() error = %v", err)
+	}
+
+	if err := store.SaveToken(Token{AccessToken: "fresh-access"}); err != nil {
+		t.Fatalf("SaveToken() error = %v", err)
+	}
+	if err := store.SaveClientSecret("fresh-secret"); err != nil {
+		t.Fatalf("SaveClientSecret() error = %v", err)
+	}
+	if _, err := os.Stat(fallbackPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Stat() error = %v, want not exist", err)
+	}
+}
+
+func TestKeyringStoreSuccessfulKeyringDeletesClearFallbackFile(t *testing.T) {
+	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
+	backend := &fakeKeyringBackend{}
+	store := KeyringStore{
+		Backend: backend,
+		FallbackPath: func() (string, error) {
+			return fallbackPath, nil
+		},
+	}
+
+	if err := writeFallbackFile(fallbackPath, fallbackCredentials{
+		Storage: fallbackStorageLabel,
+		Token: &Token{
+			AccessToken: "stale-access",
+		},
+		ClientSecret: "stale-secret",
+	}); err != nil {
+		t.Fatalf("writeFallbackFile() error = %v", err)
+	}
+
+	if err := store.DeleteToken(); err != nil {
+		t.Fatalf("DeleteToken() error = %v", err)
+	}
+	if err := store.DeleteClientSecret(); err != nil {
+		t.Fatalf("DeleteClientSecret() error = %v", err)
+	}
+	if _, err := os.Stat(fallbackPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Stat() error = %v, want not exist", err)
+	}
+}

@@ -39,17 +39,17 @@ func (a AuthApp) Login(ctx context.Context, in LoginInput) error {
 	if in.ClientID == "" || in.ClientSecret == "" || in.RedirectURL == "" {
 		return errors.New("login requires client-id, client-secret, and redirect-url")
 	}
-	cfg.OAuth.ClientID = in.ClientID
-	cfg.OAuth.RedirectURL = in.RedirectURL
-	if err := a.ConfigStore.Save(cfg); err != nil {
-		return err
-	}
 	_, err = a.Service.Login(ctx, auth.LoginInput{
 		ClientID:     in.ClientID,
 		ClientSecret: in.ClientSecret,
 		RedirectURL:  in.RedirectURL,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	cfg.OAuth.ClientID = in.ClientID
+	cfg.OAuth.RedirectURL = in.RedirectURL
+	return a.ConfigStore.Save(cfg)
 }
 
 func (a AuthApp) Status(ctx context.Context) (auth.Status, error) {
