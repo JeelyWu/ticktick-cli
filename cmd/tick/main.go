@@ -70,6 +70,25 @@ func main() {
 				Client: ticktick.New("", nil),
 			}, nil
 		},
+		TaskResolver: func() (*app.TaskApp, error) {
+			authService := auth.Service{
+				Store:   auth.KeyringStore{},
+				Browser: browserOpener{},
+				In:      streams.In,
+				Out:     streams.Out,
+			}
+
+			var store *config.Store
+			if configPath, err := config.DefaultPath(); err == nil {
+				store = config.NewStore(configPath)
+			}
+
+			return &app.TaskApp{
+				Auth:        authService,
+				Client:      ticktick.New("", nil),
+				ConfigStore: store,
+			}, nil
+		},
 	})
 
 	if err := cmd.Execute(); err != nil {

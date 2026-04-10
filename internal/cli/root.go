@@ -10,6 +10,7 @@ import (
 type AuthResolver func() (*app.AuthApp, error)
 type AuthServiceResolver func() (app.AuthService, error)
 type ProjectResolver func() (*app.ProjectApp, error)
+type TaskResolver func() (*app.TaskApp, error)
 
 type RootOptions struct {
 	Version             string
@@ -17,6 +18,7 @@ type RootOptions struct {
 	LoginAuthResolver   AuthResolver
 	AuthServiceResolver AuthServiceResolver
 	ProjectResolver     ProjectResolver
+	TaskResolver        TaskResolver
 }
 
 func NewRootCommand(opts RootOptions) *cobra.Command {
@@ -38,6 +40,11 @@ func NewRootCommand(opts RootOptions) *cobra.Command {
 	}
 	if opts.ProjectResolver != nil {
 		cmd.AddCommand(NewProjectCommand(opts.ProjectResolver, opts.Streams))
+	}
+	if opts.TaskResolver != nil {
+		cmd.AddCommand(NewTaskCommand(opts.TaskResolver, opts.Streams))
+		cmd.AddCommand(NewTodayCommand(opts.TaskResolver, opts.Streams))
+		cmd.AddCommand(NewInboxCommand(opts.TaskResolver, opts.Streams))
 	}
 	return cmd
 }
