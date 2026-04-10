@@ -321,3 +321,30 @@ func TestKeyringStoreDoesNotFallbackOnNonUnavailableKeyringError(t *testing.T) {
 		t.Fatalf("Stat() error = %v, want not exist", err)
 	}
 }
+
+func TestKeyringStoreRejectsInsecureFallbackDirectory(t *testing.T) {
+	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
+	if err := os.MkdirAll(filepath.Dir(fallbackPath), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	store := KeyringStore{
+		Backend: &fakeKeyringBackend{
+			setErr: errors.New("secret service not available"),
+		},
+		FallbackPath: func() (string, error) {
+			return fallbackPath, nil
+		},
+	}
+
+	err := store.SaveToken(Token{AccessToken: "access-1"})
+	if err == nil {
+		t.Fatal("SaveToken() error = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "0700") {
+		t.Fatalf("error = %q, want 0700 guidance", err)
+	}
+	if _, err := os.Stat(fallbackPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Stat() error = %v, want not exist", err)
+	}
+}

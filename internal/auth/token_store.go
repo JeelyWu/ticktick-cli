@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"os/user"
 
 	"github.com/jeely/ticktick-cli/internal/domain"
 	"github.com/zalando/go-keyring"
@@ -16,6 +17,7 @@ const (
 	keyringService       = "tick"
 	tokenKey             = "oauth-token"
 	clientSecretKey      = "oauth-client-secret"
+	fallbackDirName      = "auth-fallback"
 	fallbackFileName     = "auth-fallback.json"
 	fallbackStorageLabel = "less-secure-file-fallback"
 	tempFallbackDirName  = "tick-auth-fallback"
@@ -195,14 +197,20 @@ func (s KeyringStore) fallbackPath() (string, error) {
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
-		return filepath.Join(os.TempDir(), tempFallbackDirName, fallbackFileName), nil
+		return filepath.Join(tempFallbackDir(), fallbackFileName), nil
 	}
-	return filepath.Join(dir, "tick", fallbackFileName), nil
+	return filepath.Join(dir, "tick", fallbackDirName, fallbackFileName), nil
 }
 
 func (s KeyringStore) loadFallbackIfPresent() (fallbackCredentials, bool, error) {
 	path, err := s.fallbackPath()
 	if err != nil {
+		return fallbackCredentials{}, false, err
+	}
+	if err := ensurePrivateFallbackDir(filepath.Dir(path), false); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fallbackCredentials{}, false, nil
+		}
 		return fallbackCredentials{}, false, err
 	}
 	credentials, err := readFallbackFile(path)
@@ -226,6 +234,9 @@ func (s KeyringStore) fallbackGuidanceError() error {
 func (s KeyringStore) updateFallback(update func(*fallbackCredentials)) error {
 	path, err := s.fallbackPath()
 	if err != nil {
+		return err
+	}
+	if err := ensurePrivateFallbackDir(filepath.Dir(path), true); err != nil {
 		return err
 	}
 
@@ -261,14 +272,44 @@ func readFallbackFile(path string) (fallbackCredentials, error) {
 }
 
 func writeFallbackFile(path string, credentials fallbackCredentials) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	dir := filepath.Dir(path)
+	if err := ensurePrivateFallbackDir(dir, true); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(credentials, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	tempFile, err := os.CreateTemp(dir, "auth-fallback-*.tmp")
+	if err != nil {
+		return err
+	}
+	tempPath := tempFile.Name()
+	success := false
+	defer func() {
+		if !success {
+			_ = os.Remove(tempPath)
+		}
+	}()
+	if err := tempFile.Chmod(0o600); err != nil {
+		_ = tempFile.Close()
+		return err
+	}
+	if _, err := tempFile.Write(data); err != nil {
+		_ = tempFile.Close()
+		return err
+	}
+	if err := tempFile.Close(); err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if err := os.Rename(tempPath, path); err != nil {
+		return err
+	}
+	success = true
+	return nil
 }
 
 func isKeyringUnavailable(err error) bool {
@@ -284,6 +325,67 @@ func isKeyringUnavailable(err error) bool {
 		strings.Contains(message, "secret service not available") ||
 		strings.Contains(message, "no secret service") ||
 		strings.Contains(message, "dbus-launch")
+}
+
+func ensurePrivateFallbackDir(path string, create bool) error {
+	info, err := os.Lstat(path)
+	if err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("fallback directory %s must not be a symlink", path)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("fallback directory %s is not a directory", path)
+		}
+		if info.Mode().Perm() != 0o700 {
+			return fmt.Errorf("fallback directory %s must have permissions 0700", path)
+		}
+		return nil
+	}
+	if !errors.Is(err, os.ErrNotExist) || !create {
+		return err
+	}
+	if err := os.Mkdir(path, 0o700); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return ensurePrivateFallbackDir(path, false)
+		}
+		return err
+	}
+	return nil
+}
+
+func tempFallbackDir() string {
+	suffix := "default"
+	if current, err := user.Current(); err == nil {
+		switch {
+		case current.Uid != "":
+			suffix = current.Uid
+		case current.Username != "":
+			suffix = sanitizeFallbackSuffix(current.Username)
+		}
+	}
+	return filepath.Join(os.TempDir(), tempFallbackDirName+"-"+suffix)
+}
+
+func sanitizeFallbackSuffix(value string) string {
+	var builder strings.Builder
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z':
+			builder.WriteRune(r)
+		case r >= 'A' && r <= 'Z':
+			builder.WriteRune(r)
+		case r >= '0' && r <= '9':
+			builder.WriteRune(r)
+		case r == '-' || r == '_':
+			builder.WriteRune(r)
+		default:
+			builder.WriteByte('-')
+		}
+	}
+	if builder.Len() == 0 {
+		return "default"
+	}
+	return builder.String()
 }
 
 type defaultKeyringBackend struct{}
