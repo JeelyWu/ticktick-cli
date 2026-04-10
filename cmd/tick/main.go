@@ -30,19 +30,23 @@ func main() {
 		Version: version,
 		Streams: streams,
 		LoginAuthResolver: func() (*app.AuthApp, error) {
+			service := auth.Service{
+				Store:   auth.KeyringStore{},
+				Browser: browserOpener{},
+				In:      streams.In,
+				Out:     streams.Out,
+			}
+
 			configPath, err := config.DefaultPath()
 			if err != nil {
-				return nil, err
+				return &app.AuthApp{
+					Service: service,
+				}, nil
 			}
 
 			return &app.AuthApp{
 				ConfigStore: config.NewStore(configPath),
-				Service: auth.Service{
-					Store:   auth.KeyringStore{},
-					Browser: browserOpener{},
-					In:      streams.In,
-					Out:     streams.Out,
-				},
+				Service:     service,
 			}, nil
 		},
 		AuthServiceResolver: func() (app.AuthService, error) {

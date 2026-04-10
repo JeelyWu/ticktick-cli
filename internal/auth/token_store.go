@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jeely/ticktick-cli/internal/domain"
 	"github.com/zalando/go-keyring"
@@ -271,7 +272,18 @@ func writeFallbackFile(path string, credentials fallbackCredentials) error {
 }
 
 func isKeyringUnavailable(err error) bool {
-	return err != nil && !errors.Is(err, errKeyringItemNotFound)
+	if err == nil || errors.Is(err, errKeyringItemNotFound) {
+		return false
+	}
+	if errors.Is(err, keyring.ErrUnsupportedPlatform) {
+		return true
+	}
+
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "org.freedesktop.secrets") ||
+		strings.Contains(message, "secret service not available") ||
+		strings.Contains(message, "no secret service") ||
+		strings.Contains(message, "dbus-launch")
 }
 
 type defaultKeyringBackend struct{}

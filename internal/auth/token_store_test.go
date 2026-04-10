@@ -298,3 +298,26 @@ func TestKeyringStoreSuccessfulKeyringDeletesClearFallbackFile(t *testing.T) {
 		t.Fatalf("Stat() error = %v, want not exist", err)
 	}
 }
+
+func TestKeyringStoreDoesNotFallbackOnNonUnavailableKeyringError(t *testing.T) {
+	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
+	store := KeyringStore{
+		Backend: &fakeKeyringBackend{
+			setErr: errors.New("permission denied"),
+		},
+		FallbackPath: func() (string, error) {
+			return fallbackPath, nil
+		},
+	}
+
+	err := store.SaveToken(Token{AccessToken: "access-1"})
+	if err == nil {
+		t.Fatal("SaveToken() error = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "permission denied") {
+		t.Fatalf("error = %q, want permission denied", err)
+	}
+	if _, err := os.Stat(fallbackPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Stat() error = %v, want not exist", err)
+	}
+}

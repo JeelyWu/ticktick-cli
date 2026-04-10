@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jeely/ticktick-cli/internal/auth"
@@ -101,5 +102,35 @@ func TestAuthAppLoginPersistsConfigOnSuccess(t *testing.T) {
 	}
 	if cfg.OAuth.RedirectURL != "http://localhost:14573/callback" {
 		t.Fatalf("OAuth.RedirectURL = %q, want callback", cfg.OAuth.RedirectURL)
+	}
+}
+
+func TestAuthAppLoginSucceedsWithoutConfigStoreWhenInputsAreExplicit(t *testing.T) {
+	app := AuthApp{
+		Service: fakeAuthService{},
+	}
+
+	if err := app.Login(context.Background(), LoginInput{
+		ClientID:     "client-1",
+		ClientSecret: "secret-1",
+		RedirectURL:  "http://localhost:14573/callback",
+	}); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+}
+
+func TestAuthAppLoginFailsWithoutConfigStoreWhenDefaultsAreRequired(t *testing.T) {
+	app := AuthApp{
+		Service: fakeAuthService{},
+	}
+
+	err := app.Login(context.Background(), LoginInput{
+		ClientSecret: "secret-1",
+	})
+	if err == nil {
+		t.Fatal("Login() error = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "client-id") {
+		t.Fatalf("error = %q, want client-id message", err)
 	}
 }
