@@ -60,3 +60,43 @@ type Task struct {
 	Kind          string
 	CompletedTime *time.Time
 }
+
+type CreateTaskInput struct {
+	ProjectRef  string
+	Title       string
+	Content     string
+	Description string
+	StartRaw    string
+	DueRaw      string
+	AllDay      bool
+	Priority    Priority
+}
+
+type UpdateTaskInput struct {
+	Reference   string
+	ProjectRef  string
+	Title       string
+	Content     string
+	Description string
+	StartRaw    string
+	DueRaw      string
+	AllDay      *bool
+	Priority    *Priority
+}
+
+type MoveTaskInput struct {
+	Reference      string
+	FromProjectRef string
+	ToProjectRef   string
+}
+
+type CreateTaskPayload struct {
+	ProjectID   string
+	Title       string
+	Content     string
+	Description string
+	StartDate   *time.Time
+	DueDate     *time.Time
+	AllDay      bool
+	Priority    Priority
+}

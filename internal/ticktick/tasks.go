@@ -39,6 +39,12 @@ type projectDataDTO struct {
 	Tasks   []taskDTO  `json:"tasks"`
 }
 
+type moveRequest struct {
+	FromProjectID string `json:"fromProjectId"`
+	ToProjectID   string `json:"toProjectId"`
+	TaskID        string `json:"taskId"`
+}
+
 func (c *Client) FilterTasks(ctx context.Context, token string, filter domain.TaskFilter) ([]domain.Task, error) {
 	req := taskFilterRequest{
 		ProjectIDs: filter.ProjectIDs,
@@ -118,3 +124,67 @@ func parseTickTime(value string) *time.Time {
 	}
 	return nil
 }
+
+func (c *Client) CreateTask(ctx context.Context, token string, in domain.CreateTaskPayload) (domain.Task, error) {
+	body := map[string]any{
+		"title":     in.Title,
+		"projectId": in.ProjectID,
+		"content":   in.Content,
+		"desc":      in.Description,
+		"isAllDay":  in.AllDay,
+		"priority":  int(in.Priority),
+	}
+	if in.StartDate != nil {
+		body["startDate"] = in.StartDate.Format("2006-01-02T15:04:05-0700")
+	}
+	if in.DueDate != nil {
+		body["dueDate"] = in.DueDate.Format("2006-01-02T15:04:05-0700")
+	}
+	var dto taskDTO
+	if err := c.DoJSON(ctx, http.MethodPost, "/open/v1/task", token, body, &dto); err != nil {
+		return domain.Task{}, err
+	}
+	return mapTasks([]taskDTO{dto})[0], nil
+}
+
+func (c *Client) UpdateTask(ctx context.Context, token string, task domain.Task) (domain.Task, error) {
+	body := map[string]any{
+		"id":        task.ID,
+		"projectId": task.ProjectID,
+		"title":     task.Title,
+		"content":   task.Content,
+		"desc":      task.Description,
+		"isAllDay":  task.IsAllDay,
+		"priority":  int(task.Priority),
+	}
+	if task.StartDate != nil {
+		body["startDate"] = task.StartDate.Format("2006-01-02T15:04:05-0700")
+	}
+	if task.DueDate != nil {
+		body["dueDate"] = task.DueDate.Format("2006-01-02T15:04:05-0700")
+	}
+	var dto taskDTO
+	if err := c.DoJSON(ctx, http.MethodPost, "/open/v1/task/"+task.ID, token, body, &dto); err != nil {
+		return domain.Task{}, err
+	}
+	return mapTasks([]taskDTO{dto})[0], nil
+}
+
+func (c *Client) CompleteTask(ctx context.Context, token, projectID, taskID string) error {
+	return c.DoJSON(ctx, http.MethodPost, "/open/v1/project/"+projectID+"/task/"+taskID+"/complete", token, nil, nil)
+}
+
+func (c *Client) DeleteTask(ctx context.Context, token, projectID, taskID string) error {
+	return c.DoJSON(ctx, http.MethodDelete, "/open/v1/project/"+projectID+"/task/"+taskID, token, nil, nil)
+}
+
+func (c *Client) MoveTask(ctx context.Context, token, fromProjectID, toProjectID, taskID string) error {
+	request := []moveRequest{{
+		FromProjectID: fromProjectID,
+		ToProjectID:   toProjectID,
+		TaskID:        taskID,
+	}}
+	return c.DoJSON(ctx, http.MethodPost, "/open/v1/task/move", token, request, nil)
+}
+
+func timePtr(value time.Time) *time.Time { return &value }

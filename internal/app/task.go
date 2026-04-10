@@ -13,6 +13,11 @@ type TaskAPI interface {
 	ListProjects(context.Context, string) ([]domain.Project, error)
 	FilterTasks(context.Context, string, domain.TaskFilter) ([]domain.Task, error)
 	GetProjectData(context.Context, string, string) (domain.Project, []domain.Task, error)
+	CreateTask(context.Context, string, domain.CreateTaskPayload) (domain.Task, error)
+	UpdateTask(context.Context, string, domain.Task) (domain.Task, error)
+	CompleteTask(context.Context, string, string, string) error
+	DeleteTask(context.Context, string, string, string) error
+	MoveTask(context.Context, string, string, string, string) error
 }
 
 type TaskApp struct {
@@ -203,4 +208,129 @@ func parseListTime(value string) (time.Time, error) {
 		return parsed, nil
 	}
 	return time.Parse(time.RFC3339, value)
+}
+
+func (a TaskApp) Add(ctx context.Context, in domain.CreateTaskInput) (domain.Task, error) {
+	token, err := a.Auth.AccessToken(ctx)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	projects, err := a.Client.ListProjects(ctx, token)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	project, err := ResolveProject(in.ProjectRef, projects)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	payload := domain.CreateTaskPayload{
+		ProjectID:   project.ID,
+		Title:       in.Title,
+		Content:     in.Content,
+		Description: in.Description,
+		AllDay:      in.AllDay,
+		Priority:    in.Priority,
+	}
+	loc := time.Local
+	if in.StartRaw != "" {
+		start, err := domain.ParseUserTime(in.StartRaw, loc)
+		if err != nil {
+			return domain.Task{}, err
+		}
+		payload.StartDate = &start
+	}
+	if in.DueRaw != "" {
+		due, err := domain.ParseUserTime(in.DueRaw, loc)
+		if err != nil {
+			return domain.Task{}, err
+		}
+		payload.DueDate = &due
+	}
+	return a.Client.CreateTask(ctx, token, payload)
+}
+
+func (a TaskApp) Update(ctx context.Context, in domain.UpdateTaskInput) (domain.Task, error) {
+	token, err := a.Auth.AccessToken(ctx)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	task, _, err := a.Get(ctx, in.Reference, in.ProjectRef)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	if in.Title != "" {
+		task.Title = in.Title
+	}
+	if in.Content != "" {
+		task.Content = in.Content
+	}
+	if in.Description != "" {
+		task.Description = in.Description
+	}
+	if in.AllDay != nil {
+		task.IsAllDay = *in.AllDay
+	}
+	if in.Priority != nil {
+		task.Priority = *in.Priority
+	}
+	loc := time.Local
+	if in.StartRaw != "" {
+		start, err := domain.ParseUserTime(in.StartRaw, loc)
+		if err != nil {
+			return domain.Task{}, err
+		}
+		task.StartDate = &start
+	}
+	if in.DueRaw != "" {
+		due, err := domain.ParseUserTime(in.DueRaw, loc)
+		if err != nil {
+			return domain.Task{}, err
+		}
+		task.DueDate = &due
+	}
+	return a.Client.UpdateTask(ctx, token, task)
+}
+
+func (a TaskApp) Done(ctx context.Context, ref string, projectRef string) error {
+	token, err := a.Auth.AccessToken(ctx)
+	if err != nil {
+		return err
+	}
+	task, _, err := a.Get(ctx, ref, projectRef)
+	if err != nil {
+		return err
+	}
+	return a.Client.CompleteTask(ctx, token, task.ProjectID, task.ID)
+}
+
+func (a TaskApp) Remove(ctx context.Context, ref string, projectRef string) error {
+	token, err := a.Auth.AccessToken(ctx)
+	if err != nil {
+		return err
+	}
+	task, _, err := a.Get(ctx, ref, projectRef)
+	if err != nil {
+		return err
+	}
+	return a.Client.DeleteTask(ctx, token, task.ProjectID, task.ID)
+}
+
+func (a TaskApp) Move(ctx context.Context, in domain.MoveTaskInput) error {
+	token, err := a.Auth.AccessToken(ctx)
+	if err != nil {
+		return err
+	}
+	task, _, err := a.Get(ctx, in.Reference, in.FromProjectRef)
+	if err != nil {
+		return err
+	}
+	projects, err := a.Client.ListProjects(ctx, token)
+	if err != nil {
+		return err
+	}
+	destination, err := ResolveProject(in.ToProjectRef, projects)
+	if err != nil {
+		return err
+	}
+	return a.Client.MoveTask(ctx, token, task.ProjectID, destination.ID, task.ID)
 }
