@@ -182,6 +182,12 @@ func parseAuthorizationCode(response string, redirectURL string, expectedState s
 	}
 
 	values := callbackURL.Query()
+	expectedValues := expected.Query()
+	for key, expectedValue := range expectedValues {
+		if !equalQueryValues(values[key], expectedValue) {
+			return "", errors.New("authorization response redirect does not match redirect-url")
+		}
+	}
 	if authError := values.Get("error"); authError != "" {
 		return "", fmt.Errorf("oauth authorization failed: %s", authError)
 	}
@@ -194,4 +200,16 @@ func parseAuthorizationCode(response string, redirectURL string, expectedState s
 		return "", errors.New("authorization response missing code")
 	}
 	return code, nil
+}
+
+func equalQueryValues(got []string, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
 }

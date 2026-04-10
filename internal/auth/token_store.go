@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"os/user"
+	"runtime"
+	"strings"
 
 	"github.com/jeely/ticktick-cli/internal/domain"
 	"github.com/zalando/go-keyring"
@@ -299,9 +300,11 @@ func writeFallbackFile(path string, credentials fallbackCredentials) error {
 			_ = os.Remove(tempPath)
 		}
 	}()
-	if err := tempFile.Chmod(0o600); err != nil {
-		_ = tempFile.Close()
-		return err
+	if supportsPOSIXPrivatePerms() {
+		if err := tempFile.Chmod(0o600); err != nil {
+			_ = tempFile.Close()
+			return err
+		}
 	}
 	if _, err := tempFile.Write(data); err != nil {
 		_ = tempFile.Close()
@@ -344,7 +347,7 @@ func ensurePrivateFallbackDir(path string, create bool) error {
 		if !info.IsDir() {
 			return fmt.Errorf("fallback directory %s is not a directory", path)
 		}
-		if info.Mode().Perm() != 0o700 {
+		if supportsPOSIXPrivatePerms() && info.Mode().Perm() != 0o700 {
 			return fmt.Errorf("fallback directory %s must have permissions 0700", path)
 		}
 		return nil
@@ -417,6 +420,10 @@ func sanitizeFallbackSuffix(value string) string {
 		return "default"
 	}
 	return builder.String()
+}
+
+func supportsPOSIXPrivatePerms() bool {
+	return runtime.GOOS != "windows"
 }
 
 type defaultKeyringBackend struct{}

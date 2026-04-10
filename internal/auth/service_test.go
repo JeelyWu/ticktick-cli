@@ -197,6 +197,30 @@ func TestServiceLoginRejectsMismatchedState(t *testing.T) {
 	}
 }
 
+func TestServiceLoginRejectsMismatchedRedirectQuery(t *testing.T) {
+	store := &memoryTokenStore{}
+
+	_, err := Service{
+		Store:       store,
+		In:          strings.NewReader("http://localhost:14573/callback?tenant=wrong&code=code-1&state=state-1\n"),
+		Out:         &bytes.Buffer{},
+		StateSource: func() string { return "state-1" },
+	}.Login(context.Background(), LoginInput{
+		ClientID:     "client-1",
+		ClientSecret: "secret-1",
+		RedirectURL:  "http://localhost:14573/callback?tenant=expected",
+	})
+	if err == nil {
+		t.Fatal("Login() error = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "redirect does not match") {
+		t.Fatalf("error = %q, want redirect mismatch", err)
+	}
+	if store.saveTokenCalls != 0 {
+		t.Fatalf("SaveToken() calls = %d, want 0", store.saveTokenCalls)
+	}
+}
+
 func TestServiceLoginAcceptsCallbackURLWithoutTrailingNewline(t *testing.T) {
 	var exchangedCode string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
