@@ -26,6 +26,14 @@ const (
 var ErrNotAuthenticated = domain.ErrNotAuthenticated
 var errKeyringItemNotFound = keyring.ErrNotFound
 
+type fallbackLoginRequiredError struct {
+	path string
+}
+
+func (e fallbackLoginRequiredError) Error() string {
+	return fmt.Sprintf("system keyring unavailable; run `tick auth login` to use the less-secure fallback file at %s", e.path)
+}
+
 type keyringBackend interface {
 	Set(service, user, value string) error
 	Get(service, user string) (string, error)
@@ -228,7 +236,7 @@ func (s KeyringStore) fallbackGuidanceError() error {
 	if err != nil {
 		return err
 	}
-	return fmt.Errorf("system keyring unavailable; run `tick auth login` to use the less-secure fallback file at %s", path)
+	return fallbackLoginRequiredError{path: path}
 }
 
 func (s KeyringStore) updateFallback(update func(*fallbackCredentials)) error {
@@ -344,6 +352,9 @@ func ensurePrivateFallbackDir(path string, create bool) error {
 	if !errors.Is(err, os.ErrNotExist) || !create {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
 	if err := os.Mkdir(path, 0o700); err != nil {
 		if errors.Is(err, os.ErrExist) {
 			return ensurePrivateFallbackDir(path, false)
@@ -351,6 +362,26 @@ func ensurePrivateFallbackDir(path string, create bool) error {
 		return err
 	}
 	return nil
+}
+
+func (s KeyringStore) ActiveFallbackPath() (string, bool, error) {
+	path, err := s.fallbackPath()
+	if err != nil {
+		return "", false, err
+	}
+	if err := ensurePrivateFallbackDir(filepath.Dir(path), false); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	return path, true, nil
 }
 
 func tempFallbackDir() string {

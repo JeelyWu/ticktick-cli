@@ -169,6 +169,22 @@ func TestKeyringStoreDeleteTokenSucceedsWhenUsingTempDirFallback(t *testing.T) {
 	}
 }
 
+func TestKeyringStoreDeleteTokenSucceedsWhenFallbackParentMissing(t *testing.T) {
+	fallbackPath := filepath.Join(t.TempDir(), "missing", "tick", "auth-fallback", "auth-fallback.json")
+	store := KeyringStore{
+		Backend: &fakeKeyringBackend{
+			deleteErr: errors.New("dbus-launch: no secret service"),
+		},
+		FallbackPath: func() (string, error) {
+			return fallbackPath, nil
+		},
+	}
+
+	if err := store.DeleteToken(); err != nil {
+		t.Fatalf("DeleteToken() error = %v, want nil", err)
+	}
+}
+
 func TestKeyringStoreUsesFallbackWhenKeyringItemIsNotFound(t *testing.T) {
 	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
 	store := KeyringStore{

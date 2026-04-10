@@ -36,6 +36,10 @@ type Service struct {
 	StateSource func() string
 }
 
+type fallbackPathReporter interface {
+	ActiveFallbackPath() (string, bool, error)
+}
+
 func (s Service) Login(ctx context.Context, in LoginInput) (Token, error) {
 	if in.ClientID == "" || in.ClientSecret == "" || in.RedirectURL == "" {
 		return Token{}, errors.New("client-id, client-secret, and redirect-url are required")
@@ -82,6 +86,15 @@ func (s Service) Login(ctx context.Context, in LoginInput) (Token, error) {
 	if err := s.Store.SaveToken(token); err != nil {
 		return Token{}, err
 	}
+	if reporter, ok := s.Store.(fallbackPathReporter); ok {
+		path, active, err := reporter.ActiveFallbackPath()
+		if err != nil {
+			return Token{}, err
+		}
+		if active {
+			_, _ = fmt.Fprintf(s.Out, "Warning: system keyring unavailable; credentials were stored in the less-secure fallback file at %s\n", path)
+		}
+	}
 	return token, nil
 }
 
@@ -89,6 +102,10 @@ func (s Service) Status(ctx context.Context) (Status, error) {
 	token, err := s.Store.LoadToken()
 	if err != nil {
 		if errors.Is(err, ErrNotAuthenticated) {
+			return Status{}, nil
+		}
+		var guidanceErr fallbackLoginRequiredError
+		if errors.As(err, &guidanceErr) {
 			return Status{}, nil
 		}
 		return Status{}, err
