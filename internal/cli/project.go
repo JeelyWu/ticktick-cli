@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProjectCommand(resolveProjectApp ProjectResolver, streams Streams) *cobra.Command {
+func NewProjectCommand(resolveProjectApp ProjectResolver, resolveConfigApp ConfigResolver, streams Streams) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "project",
 		Short: "Read and write TickTick projects",
@@ -36,7 +36,11 @@ func NewProjectCommand(resolveProjectApp ProjectResolver, streams Streams) *cobr
 			if err != nil {
 				return err
 			}
-			if lsJSON {
+			format, err := resolveOutputFormat(cmd, resolveConfigApp, lsJSON, "")
+			if err != nil {
+				return err
+			}
+			if format == "json" {
 				return output.PrintJSON(streams.Out, projects)
 			}
 			return output.PrintProjectsTable(streams.Out, projects)
@@ -58,7 +62,11 @@ func NewProjectCommand(resolveProjectApp ProjectResolver, streams Streams) *cobr
 			if err != nil {
 				return err
 			}
-			if getJSON {
+			format, err := resolveOutputFormat(cmd, resolveConfigApp, getJSON, "")
+			if err != nil {
+				return err
+			}
+			if format == "json" {
 				return output.PrintJSON(streams.Out, project)
 			}
 			return output.PrintProjectsTable(streams.Out, []domain.Project{project})

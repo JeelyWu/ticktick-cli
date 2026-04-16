@@ -43,12 +43,12 @@ func NewRootCommand(opts RootOptions) *cobra.Command {
 		cmd.AddCommand(NewAuthCommand(opts.LoginAuthResolver, opts.AuthServiceResolver, opts.RegionResolver, opts.Streams))
 	}
 	if opts.ProjectResolver != nil {
-		cmd.AddCommand(NewProjectCommand(opts.ProjectResolver, opts.Streams))
+		cmd.AddCommand(NewProjectCommand(opts.ProjectResolver, opts.ConfigResolver, opts.Streams))
 	}
 	if opts.TaskResolver != nil {
-		cmd.AddCommand(NewTaskCommand(opts.TaskResolver, opts.Streams))
-		cmd.AddCommand(NewTodayCommand(opts.TaskResolver, opts.Streams))
-		cmd.AddCommand(NewInboxCommand(opts.TaskResolver, opts.Streams))
+		cmd.AddCommand(NewTaskCommand(opts.TaskResolver, opts.ConfigResolver, opts.Streams))
+		cmd.AddCommand(NewTodayCommand(opts.TaskResolver, opts.ConfigResolver, opts.Streams))
+		cmd.AddCommand(NewInboxCommand(opts.TaskResolver, opts.ConfigResolver, opts.Streams))
 	}
 	if opts.QuickResolver != nil {
 		cmd.AddCommand(NewQuickCommand(opts.QuickResolver, opts.Streams))

@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewTaskCommand(resolveTaskApp TaskResolver, streams Streams) *cobra.Command {
+func NewTaskCommand(resolveTaskApp TaskResolver, resolveConfigApp ConfigResolver, streams Streams) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "task",
 		Short: "Read and write TickTick tasks",
@@ -73,7 +73,11 @@ func NewTaskCommand(resolveTaskApp TaskResolver, streams Streams) *cobra.Command
 			if err != nil {
 				return err
 			}
-			if jsonOut || outputFormat == "json" {
+			format, err := resolveOutputFormat(cmd, resolveConfigApp, jsonOut, "output")
+			if err != nil {
+				return err
+			}
+			if format == "json" {
 				return output.PrintJSON(streams.Out, tasks)
 			}
 			return output.PrintTasksTable(streams.Out, tasks, names)
@@ -105,7 +109,11 @@ func NewTaskCommand(resolveTaskApp TaskResolver, streams Streams) *cobra.Command
 			if err != nil {
 				return err
 			}
-			if getJSON {
+			format, err := resolveOutputFormat(cmd, resolveConfigApp, getJSON, "")
+			if err != nil {
+				return err
+			}
+			if format == "json" {
 				return output.PrintJSON(streams.Out, task)
 			}
 			return output.PrintTasksTable(streams.Out, []domain.Task{task}, names)
@@ -261,7 +269,7 @@ func NewTaskCommand(resolveTaskApp TaskResolver, streams Streams) *cobra.Command
 	return cmd
 }
 
-func NewTodayCommand(resolveTaskApp TaskResolver, streams Streams) *cobra.Command {
+func NewTodayCommand(resolveTaskApp TaskResolver, resolveConfigApp ConfigResolver, streams Streams) *cobra.Command {
 	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "today",
@@ -278,7 +286,11 @@ func NewTodayCommand(resolveTaskApp TaskResolver, streams Streams) *cobra.Comman
 			if err != nil {
 				return err
 			}
-			if jsonOut {
+			format, err := resolveOutputFormat(cmd, resolveConfigApp, jsonOut, "")
+			if err != nil {
+				return err
+			}
+			if format == "json" {
 				return output.PrintJSON(streams.Out, tasks)
 			}
 			return output.PrintTasksTable(streams.Out, tasks, names)
@@ -288,7 +300,7 @@ func NewTodayCommand(resolveTaskApp TaskResolver, streams Streams) *cobra.Comman
 	return cmd
 }
 
-func NewInboxCommand(resolveTaskApp TaskResolver, streams Streams) *cobra.Command {
+func NewInboxCommand(resolveTaskApp TaskResolver, resolveConfigApp ConfigResolver, streams Streams) *cobra.Command {
 	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "inbox",
@@ -305,7 +317,11 @@ func NewInboxCommand(resolveTaskApp TaskResolver, streams Streams) *cobra.Comman
 			if err != nil {
 				return err
 			}
-			if jsonOut {
+			format, err := resolveOutputFormat(cmd, resolveConfigApp, jsonOut, "")
+			if err != nil {
+				return err
+			}
+			if format == "json" {
 				return output.PrintJSON(streams.Out, tasks)
 			}
 			return output.PrintTasksTable(streams.Out, tasks, names)

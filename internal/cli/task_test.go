@@ -13,7 +13,7 @@ func TestTaskListRejectsTodayWithCompletedStatus(t *testing.T) {
 	cmd := NewTaskCommand(func() (*app.TaskApp, error) {
 		resolved++
 		return &app.TaskApp{}, nil
-	}, streams)
+	}, nil, streams)
 	cmd.SetArgs([]string{"ls", "--today", "--status", "completed"})
 
 	err := cmd.Execute()
@@ -34,7 +34,7 @@ func TestTaskListRejectsOverdueWithCompletedStatus(t *testing.T) {
 	cmd := NewTaskCommand(func() (*app.TaskApp, error) {
 		resolved++
 		return &app.TaskApp{}, nil
-	}, streams)
+	}, nil, streams)
 	cmd.SetArgs([]string{"ls", "--overdue", "--status", "completed"})
 
 	err := cmd.Execute()
@@ -55,7 +55,7 @@ func TestTaskListRejectsTodayAndOverdueTogether(t *testing.T) {
 	cmd := NewTaskCommand(func() (*app.TaskApp, error) {
 		resolved++
 		return &app.TaskApp{}, nil
-	}, streams)
+	}, nil, streams)
 	cmd.SetArgs([]string{"ls", "--today", "--overdue"})
 
 	err := cmd.Execute()

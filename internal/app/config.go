@@ -55,6 +55,9 @@ func (a ConfigApp) Set(ctx context.Context, key, value string) error {
 	}
 	switch key {
 	case "output.default":
+		if value != "table" && value != "json" {
+			return fmt.Errorf("unsupported value %q for output.default", value)
+		}
 		cfg.Output.Default = value
 	case "service.region":
 		if _, err := endpoint.ForRegion(value); err != nil {
