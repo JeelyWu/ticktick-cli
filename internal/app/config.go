@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jeely/ticktick-cli/internal/config"
+	"github.com/jeely/ticktick-cli/internal/endpoint"
 )
 
 type ConfigApp struct {
@@ -19,6 +20,8 @@ func (a ConfigApp) Get(ctx context.Context, key string) (string, error) {
 	switch key {
 	case "output.default":
 		return cfg.Output.Default, nil
+	case "service.region":
+		return cfg.Service.Region, nil
 	case "task.default_project":
 		return cfg.Task.DefaultProject, nil
 	case "task.inbox_project_id":
@@ -40,6 +43,11 @@ func (a ConfigApp) Set(ctx context.Context, key, value string) error {
 	switch key {
 	case "output.default":
 		cfg.Output.Default = value
+	case "service.region":
+		if _, err := endpoint.ForRegion(value); err != nil {
+			return err
+		}
+		cfg.Service.Region = value
 	case "task.default_project":
 		cfg.Task.DefaultProject = value
 	case "task.inbox_project_id":

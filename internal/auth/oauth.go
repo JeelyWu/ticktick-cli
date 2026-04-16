@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 type OAuthConfig struct {
@@ -19,28 +20,43 @@ type OAuthConfig struct {
 type Exchanger struct {
 	HTTPClient *http.Client
 	TokenURL   string
+	Now        func() time.Time
 }
 
-func BuildAuthorizeURL(cfg OAuthConfig, state string) string {
+func BuildAuthorizeURL(authorizeURL string, cfg OAuthConfig, state string) string {
 	values := url.Values{}
 	values.Set("client_id", cfg.ClientID)
 	values.Set("scope", "tasks:read tasks:write")
 	values.Set("state", state)
 	values.Set("redirect_uri", cfg.RedirectURL)
 	values.Set("response_type", "code")
-	return "https://ticktick.com/oauth/authorize?" + values.Encode()
+	if authorizeURL == "" {
+		authorizeURL = "https://ticktick.com/oauth/authorize"
+	}
+	return authorizeURL + "?" + values.Encode()
 }
 
 func (e Exchanger) ExchangeCode(ctx context.Context, cfg OAuthConfig, code string) (Token, error) {
-	tokenURL := e.TokenURL
-	if tokenURL == "" {
-		tokenURL = "https://ticktick.com/oauth/token"
-	}
 	values := url.Values{}
 	values.Set("code", code)
 	values.Set("grant_type", "authorization_code")
 	values.Set("scope", "tasks:read tasks:write")
 	values.Set("redirect_uri", cfg.RedirectURL)
+	return e.exchange(ctx, cfg, values)
+}
+
+func (e Exchanger) RefreshToken(ctx context.Context, cfg OAuthConfig, refreshToken string) (Token, error) {
+	values := url.Values{}
+	values.Set("grant_type", "refresh_token")
+	values.Set("refresh_token", refreshToken)
+	return e.exchange(ctx, cfg, values)
+}
+
+func (e Exchanger) exchange(ctx context.Context, cfg OAuthConfig, values url.Values) (Token, error) {
+	tokenURL := e.TokenURL
+	if tokenURL == "" {
+		tokenURL = "https://ticktick.com/oauth/token"
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(values.Encode()))
 	if err != nil {
@@ -70,5 +86,12 @@ func (e Exchanger) ExchangeCode(ctx context.Context, cfg OAuthConfig, code strin
 	if token.AccessToken == "" {
 		return Token{}, errors.New("oauth token response missing access_token")
 	}
-	return token, nil
+	return token.withExpiry(e.now()), nil
+}
+
+func (e Exchanger) now() time.Time {
+	if e.Now != nil {
+		return e.Now()
+	}
+	return time.Now().UTC()
 }

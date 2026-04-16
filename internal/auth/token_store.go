@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/jeely/ticktick-cli/internal/domain"
 	"github.com/zalando/go-keyring"
@@ -50,10 +51,41 @@ type fallbackCredentials struct {
 }
 
 type Token struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	TokenType    string `json:"token_type"`
-	Scope        string `json:"scope"`
+	AccessToken   string `json:"access_token"`
+	RefreshToken  string `json:"refresh_token"`
+	TokenType     string `json:"token_type"`
+	Scope         string `json:"scope"`
+	ExpiresIn     int64  `json:"expires_in,omitempty"`
+	CreatedAtUnix int64  `json:"created_at,omitempty"`
+	ExpiresAtUnix int64  `json:"expires_at,omitempty"`
+}
+
+func (t Token) HasExpiry() bool {
+	return t.ExpiresAtUnix > 0
+}
+
+func (t Token) ExpiresAt() time.Time {
+	if t.ExpiresAtUnix == 0 {
+		return time.Time{}
+	}
+	return time.Unix(t.ExpiresAtUnix, 0).UTC()
+}
+
+func (t Token) NeedsRefresh(now time.Time, skew time.Duration) bool {
+	if !t.HasExpiry() {
+		return false
+	}
+	return !now.UTC().Before(t.ExpiresAt().Add(-skew))
+}
+
+func (t Token) withExpiry(now time.Time) Token {
+	if t.ExpiresIn <= 0 {
+		return t
+	}
+	now = now.UTC()
+	t.CreatedAtUnix = now.Unix()
+	t.ExpiresAtUnix = now.Add(time.Duration(t.ExpiresIn) * time.Second).Unix()
+	return t
 }
 
 type TokenStore interface {

@@ -42,7 +42,7 @@ func TestAuthLoginUsesClientSecretFromEnvironment(t *testing.T) {
 			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
 			Service:     service,
 		}, nil
-	}, nil, streams)
+	}, nil, nil, streams)
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
 	cmd.SetErr(streams.ErrOut)
@@ -73,7 +73,7 @@ func TestAuthLoginHelpMentionsEnvironmentFallback(t *testing.T) {
 			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
 			Service:     &recordingAuthService{},
 		}, nil
-	}, nil, streams)
+	}, nil, nil, streams)
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
 	cmd.SetErr(streams.ErrOut)
@@ -103,7 +103,7 @@ func TestAuthLoginFlagOverridesEnvironment(t *testing.T) {
 			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
 			Service:     service,
 		}, nil
-	}, nil, streams)
+	}, nil, nil, streams)
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
 	cmd.SetErr(streams.ErrOut)
@@ -131,7 +131,7 @@ func TestAuthLoginWithoutEnvOrFlagStillFails(t *testing.T) {
 			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
 			Service:     &recordingAuthService{},
 		}, nil
-	}, nil, streams)
+	}, nil, nil, streams)
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
 	cmd.SetErr(streams.ErrOut)
@@ -160,7 +160,7 @@ func TestAuthHelpDoesNotResolveAuthApp(t *testing.T) {
 	}, func() (app.AuthService, error) {
 		serviceResolved++
 		return nil, nil
-	}, streams)
+	}, nil, streams)
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
 	cmd.SetErr(streams.ErrOut)
@@ -192,14 +192,26 @@ func TestAuthStatusUsesServiceResolverWithoutResolvingLoginApp(t *testing.T) {
 		return &app.AuthApp{
 			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
 			Service: &recordingAuthService{
-				status: auth.Status{Authenticated: true},
+				status: auth.Status{
+					Authenticated:    true,
+					ExpiryKnown:      true,
+					ExpiresAtUnix:    1_776_355_566,
+					ExpiresInSeconds: 3600,
+				},
 			},
 		}, nil
 	}, func() (app.AuthService, error) {
 		serviceResolved++
 		return &recordingAuthService{
-			status: auth.Status{Authenticated: true},
+			status: auth.Status{
+				Authenticated:    true,
+				ExpiryKnown:      true,
+				ExpiresAtUnix:    1_776_355_566,
+				ExpiresInSeconds: 3600,
+			},
 		}, nil
+	}, func() (string, error) {
+		return "dida365", nil
 	}, streams)
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
@@ -215,8 +227,33 @@ func TestAuthStatusUsesServiceResolverWithoutResolvingLoginApp(t *testing.T) {
 	if serviceResolved != 1 {
 		t.Fatalf("service resolver calls = %d, want 1", serviceResolved)
 	}
-	if got := strings.TrimSpace(stdout.String()); got != "authenticated" {
-		t.Fatalf("stdout = %q, want authenticated", got)
+	if got := strings.TrimSpace(stdout.String()); got != "authenticated\nregion: dida365\nexpires_at: 2026-04-16T16:06:06Z\nexpires_in: 3600s" {
+		t.Fatalf("stdout = %q, want authenticated with expiry details", got)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestAuthStatusPrintsRegionWhenNotAuthenticated(t *testing.T) {
+	streams, stdout, stderr := newTestStreams()
+	cmd := NewAuthCommand(nil, func() (app.AuthService, error) {
+		return &recordingAuthService{
+			status: auth.Status{Authenticated: false},
+		}, nil
+	}, func() (string, error) {
+		return "ticktick", nil
+	}, streams)
+	cmd.SetIn(streams.In)
+	cmd.SetOut(streams.Out)
+	cmd.SetErr(streams.ErrOut)
+	cmd.SetArgs([]string{"status"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if got := strings.TrimSpace(stdout.String()); got != "not authenticated\nregion: ticktick" {
+		t.Fatalf("stdout = %q, want not authenticated with region", got)
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
@@ -234,7 +271,7 @@ func TestAuthLogoutUsesServiceResolverWithoutResolvingLoginApp(t *testing.T) {
 	}, func() (app.AuthService, error) {
 		serviceResolved++
 		return service, nil
-	}, streams)
+	}, nil, streams)
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
 	cmd.SetErr(streams.ErrOut)

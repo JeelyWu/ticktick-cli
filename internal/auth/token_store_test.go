@@ -76,6 +76,9 @@ func TestKeyringStoreFallsBackToLessSecureFileWhenKeyringUnavailable(t *testing.
 	if loadedToken.AccessToken != "access-1" {
 		t.Fatalf("AccessToken = %q, want access-1", loadedToken.AccessToken)
 	}
+	if loadedToken.ExpiresAtUnix != 0 {
+		t.Fatalf("ExpiresAtUnix = %d, want 0", loadedToken.ExpiresAtUnix)
+	}
 	loadedSecret, err := store.LoadClientSecret()
 	if err != nil {
 		t.Fatalf("LoadClientSecret() error = %v", err)
@@ -97,6 +100,35 @@ func TestKeyringStoreFallsBackToLessSecureFileWhenKeyringUnavailable(t *testing.
 	}
 	if !strings.Contains(string(data), "less-secure-file-fallback") {
 		t.Fatalf("fallback file = %q, want less-secure-file-fallback marker", string(data))
+	}
+}
+
+func TestKeyringStorePreservesTokenExpiryMetadata(t *testing.T) {
+	backend := &fakeKeyringBackend{}
+	store := KeyringStore{Backend: backend}
+	token := Token{
+		AccessToken:   "access-1",
+		RefreshToken:  "refresh-1",
+		ExpiresIn:     3600,
+		CreatedAtUnix: 1_776_351_966,
+		ExpiresAtUnix: 1_776_355_566,
+	}
+
+	if err := store.SaveToken(token); err != nil {
+		t.Fatalf("SaveToken() error = %v", err)
+	}
+	loaded, err := store.LoadToken()
+	if err != nil {
+		t.Fatalf("LoadToken() error = %v", err)
+	}
+	if loaded.ExpiresIn != 3600 {
+		t.Fatalf("ExpiresIn = %d, want 3600", loaded.ExpiresIn)
+	}
+	if loaded.CreatedAtUnix != 1_776_351_966 {
+		t.Fatalf("CreatedAtUnix = %d, want 1776351966", loaded.CreatedAtUnix)
+	}
+	if loaded.ExpiresAtUnix != 1_776_355_566 {
+		t.Fatalf("ExpiresAtUnix = %d, want 1776355566", loaded.ExpiresAtUnix)
 	}
 }
 

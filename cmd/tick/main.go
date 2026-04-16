@@ -8,6 +8,7 @@ import (
 	"github.com/jeely/ticktick-cli/internal/auth"
 	"github.com/jeely/ticktick-cli/internal/cli"
 	"github.com/jeely/ticktick-cli/internal/config"
+	"github.com/jeely/ticktick-cli/internal/endpoint"
 	"github.com/jeely/ticktick-cli/internal/ticktick"
 	"github.com/pkg/browser"
 )
@@ -20,6 +21,49 @@ func (browserOpener) OpenURL(url string) error {
 
 var version = "dev"
 
+func loadConfigStore() (*config.Store, config.Config, error) {
+	configPath, err := config.DefaultPath()
+	if err != nil {
+		return nil, config.Config{}, err
+	}
+	store := config.NewStore(configPath)
+	cfg, err := store.Load()
+	if err != nil {
+		return nil, config.Config{}, err
+	}
+	return store, cfg, nil
+}
+
+func resolveRegion() (string, error) {
+	_, cfg, err := loadConfigStore()
+	if err != nil {
+		return "", err
+	}
+	return cfg.Service.Region, nil
+}
+
+func buildRuntime(streams cli.Streams) (*config.Store, auth.Service, *ticktick.Client, error) {
+	store, cfg, err := loadConfigStore()
+	if err != nil {
+		return nil, auth.Service{}, nil, err
+	}
+	endpoints, err := endpoint.ForRegion(cfg.Service.Region)
+	if err != nil {
+		return nil, auth.Service{}, nil, err
+	}
+	return store, auth.Service{
+		AuthorizeURL: endpoints.AuthorizeURL,
+		ClientID:     cfg.OAuth.ClientID,
+		Exchanger: auth.Exchanger{
+			TokenURL: endpoints.TokenURL,
+		},
+		Store:   auth.KeyringStore{},
+		Browser: browserOpener{},
+		In:      streams.In,
+		Out:     streams.Out,
+	}, ticktick.New(endpoints.APIBaseURL, nil), nil
+}
+
 func main() {
 	streams := cli.Streams{
 		In:     os.Stdin,
@@ -28,25 +72,16 @@ func main() {
 	}
 
 	cmd := cli.NewRootCommand(cli.RootOptions{
-		Version: version,
-		Streams: streams,
+		Version:        version,
+		Streams:        streams,
+		RegionResolver: resolveRegion,
 		LoginAuthResolver: func() (*app.AuthApp, error) {
-			service := auth.Service{
-				Store:   auth.KeyringStore{},
-				Browser: browserOpener{},
-				In:      streams.In,
-				Out:     streams.Out,
-			}
-
-			configPath, err := config.DefaultPath()
+			store, service, _, err := buildRuntime(streams)
 			if err != nil {
-				return &app.AuthApp{
-					Service: service,
-				}, nil
+				return nil, err
 			}
-
 			return &app.AuthApp{
-				ConfigStore: config.NewStore(configPath),
+				ConfigStore: store,
 				Service:     service,
 			}, nil
 		},
@@ -59,48 +94,31 @@ func main() {
 			}, nil
 		},
 		ProjectResolver: func() (*app.ProjectApp, error) {
-			authService := auth.Service{
-				Store:   auth.KeyringStore{},
-				Browser: browserOpener{},
-				In:      streams.In,
-				Out:     streams.Out,
+			_, authService, api, err := buildRuntime(streams)
+			if err != nil {
+				return nil, err
 			}
 			return &app.ProjectApp{
 				Auth:   authService,
-				Client: ticktick.New("", nil),
+				Client: api,
 			}, nil
 		},
 		TaskResolver: func() (*app.TaskApp, error) {
-			authService := auth.Service{
-				Store:   auth.KeyringStore{},
-				Browser: browserOpener{},
-				In:      streams.In,
-				Out:     streams.Out,
-			}
-
-			var store *config.Store
-			if configPath, err := config.DefaultPath(); err == nil {
-				store = config.NewStore(configPath)
+			store, authService, api, err := buildRuntime(streams)
+			if err != nil {
+				return nil, err
 			}
 
 			return &app.TaskApp{
 				Auth:        authService,
-				Client:      ticktick.New("", nil),
+				Client:      api,
 				ConfigStore: store,
 			}, nil
 		},
 		QuickResolver: func() (*app.QuickAddApp, error) {
-			authService := auth.Service{
-				Store:   auth.KeyringStore{},
-				Browser: browserOpener{},
-				In:      streams.In,
-				Out:     streams.Out,
-			}
-			api := ticktick.New("", nil)
-
-			var store *config.Store
-			if configPath, err := config.DefaultPath(); err == nil {
-				store = config.NewStore(configPath)
+			store, authService, api, err := buildRuntime(streams)
+			if err != nil {
+				return nil, err
 			}
 
 			taskApp := &app.TaskApp{

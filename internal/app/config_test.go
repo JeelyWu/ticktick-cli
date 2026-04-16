@@ -22,3 +22,29 @@ func TestConfigAppSetAndGet(t *testing.T) {
 		t.Fatalf("value = %q, want json", value)
 	}
 }
+
+func TestConfigAppSetAndGetServiceRegion(t *testing.T) {
+	store := config.NewStore(t.TempDir() + "/config.yaml")
+	app := ConfigApp{Store: store}
+
+	if err := app.Set(context.Background(), "service.region", "dida365"); err != nil {
+		t.Fatalf("Set() error = %v", err)
+	}
+	value, err := app.Get(context.Background(), "service.region")
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if value != "dida365" {
+		t.Fatalf("value = %q, want dida365", value)
+	}
+}
+
+func TestConfigAppSetRejectsUnsupportedServiceRegion(t *testing.T) {
+	store := config.NewStore(t.TempDir() + "/config.yaml")
+	app := ConfigApp{Store: store}
+
+	err := app.Set(context.Background(), "service.region", "invalid")
+	if err == nil {
+		t.Fatal("Set() error = nil, want non-nil")
+	}
+}

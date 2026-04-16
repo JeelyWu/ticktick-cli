@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 type stubBrowser struct {
@@ -305,7 +308,7 @@ func TestServiceLoginAcceptsCallbackURLWithoutTrailingNewline(t *testing.T) {
 }
 
 func TestBuildAuthorizeURLIncludesSuppliedState(t *testing.T) {
-	got := BuildAuthorizeURL(OAuthConfig{
+	got := BuildAuthorizeURL("https://ticktick.com/oauth/authorize", OAuthConfig{
 		ClientID:    "client-1",
 		RedirectURL: "http://localhost:14573/callback",
 	}, "state-1")
@@ -316,6 +319,155 @@ func TestBuildAuthorizeURLIncludesSuppliedState(t *testing.T) {
 	}
 	if parsed.Query().Get("state") != "state-1" {
 		t.Fatalf("state = %q, want state-1", parsed.Query().Get("state"))
+	}
+}
+
+func TestServiceLoginUsesConfiguredAuthorizeURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"access-1","refresh_token":"refresh-1","token_type":"Bearer"}`))
+	}))
+	defer server.Close()
+
+	state := "state-1"
+	callbackURL := "http://localhost:14573/callback?code=code-1&state=" + state
+	store := &memoryTokenStore{}
+	browser := &stubBrowser{}
+	out := &bytes.Buffer{}
+
+	_, err := Service{
+		AuthorizeURL: "https://dida365.com/oauth/authorize",
+		Exchanger: Exchanger{
+			HTTPClient: server.Client(),
+			TokenURL:   server.URL,
+		},
+		Store:       store,
+		Browser:     browser,
+		In:          strings.NewReader(callbackURL + "\n"),
+		Out:         out,
+		StateSource: func() string { return state },
+	}.Login(context.Background(), LoginInput{
+		ClientID:     "client-1",
+		ClientSecret: "secret-1",
+		RedirectURL:  "http://localhost:14573/callback",
+	})
+	if err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+	if len(browser.urls) != 1 {
+		t.Fatalf("OpenURL() calls = %d, want 1", len(browser.urls))
+	}
+	if got, want := browser.urls[0], "https://dida365.com/oauth/authorize?client_id=client-1&redirect_uri=http%3A%2F%2Flocalhost%3A14573%2Fcallback&response_type=code&scope=tasks%3Aread+tasks%3Awrite&state=state-1"; got != want {
+		t.Fatalf("OpenURL() = %q, want %q", got, want)
+	}
+}
+
+func TestServiceLoginAcceptsAutomaticLocalCallback(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm() error = %v", err)
+		}
+		if got := r.PostForm.Get("code"); got != "code-1" {
+			t.Fatalf("code = %q, want code-1", got)
+		}
+		_, _ = w.Write([]byte(`{"access_token":"access-1","refresh_token":"refresh-1","token_type":"Bearer"}`))
+	}))
+	defer tokenServer.Close()
+
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen() error = %v", err)
+	}
+	addr := l.Addr().String()
+	_ = l.Close()
+
+	state := "state-1"
+	store := &memoryTokenStore{}
+	browser := &stubBrowser{}
+	out := &bytes.Buffer{}
+	manualIn, manualWriter := io.Pipe()
+	defer manualWriter.Close()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for len(browser.urls) == 0 {
+			time.Sleep(10 * time.Millisecond)
+		}
+		callbackURL := "http://" + addr + "/callback?code=code-1&state=" + state
+		resp, err := http.Get(callbackURL)
+		if err != nil {
+			t.Errorf("http.Get() error = %v", err)
+			return
+		}
+		_ = resp.Body.Close()
+	}()
+
+	token, err := Service{
+		Exchanger: Exchanger{
+			HTTPClient: tokenServer.Client(),
+			TokenURL:   tokenServer.URL,
+		},
+		Store:       store,
+		Browser:     browser,
+		In:          manualIn,
+		Out:         out,
+		StateSource: func() string { return state },
+	}.Login(context.Background(), LoginInput{
+		ClientID:     "client-1",
+		ClientSecret: "secret-1",
+		RedirectURL:  "http://" + addr + "/callback",
+	})
+	manualWriter.Close()
+	<-done
+	if err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+	if token.AccessToken != "access-1" {
+		t.Fatalf("AccessToken = %q, want access-1", token.AccessToken)
+	}
+	if !strings.Contains(out.String(), "Waiting for browser callback") {
+		t.Fatalf("output = %q, want automatic callback guidance", out.String())
+	}
+}
+
+func TestServiceLoginFallsBackToManualWhenCallbackListenerCannotStart(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"access-1","refresh_token":"refresh-1","token_type":"Bearer"}`))
+	}))
+	defer server.Close()
+
+	state := "state-1"
+	store := &memoryTokenStore{}
+	out := &bytes.Buffer{}
+
+	token, err := Service{
+		Exchanger: Exchanger{
+			HTTPClient: server.Client(),
+			TokenURL:   server.URL,
+		},
+		Store:       store,
+		In:          strings.NewReader("http://127.0.0.1:14573/callback?code=code-1&state=" + state + "\n"),
+		Out:         out,
+		StateSource: func() string { return state },
+		Listen: func(network, address string) (net.Listener, error) {
+			return nil, errors.New("bind failed")
+		},
+	}.Login(context.Background(), LoginInput{
+		ClientID:     "client-1",
+		ClientSecret: "secret-1",
+		RedirectURL:  "http://127.0.0.1:14573/callback",
+	})
+	if err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+	if token.AccessToken != "access-1" {
+		t.Fatalf("AccessToken = %q, want access-1", token.AccessToken)
+	}
+	if !strings.Contains(out.String(), "Automatic callback unavailable") {
+		t.Fatalf("output = %q, want fallback warning", out.String())
+	}
+	if !strings.Contains(out.String(), "Paste the full callback URL") {
+		t.Fatalf("output = %q, want manual fallback prompt", out.String())
 	}
 }
 
@@ -337,6 +489,91 @@ func TestServiceStatusTreatsFallbackGuidanceAsNotAuthenticated(t *testing.T) {
 	}
 	if status.Authenticated {
 		t.Fatal("Authenticated = true, want false")
+	}
+}
+
+func TestServiceStatusIncludesTokenExpiry(t *testing.T) {
+	now := time.Unix(1_776_351_966, 0).UTC()
+	service := Service{
+		Store: &memoryTokenStore{
+			token: Token{
+				AccessToken:   "access-1",
+				RefreshToken:  "refresh-1",
+				ExpiresIn:     3600,
+				CreatedAtUnix: now.Unix(),
+				ExpiresAtUnix: now.Add(time.Hour).Unix(),
+			},
+		},
+		Now: func() time.Time { return now },
+	}
+
+	status, err := service.Status(context.Background())
+	if err != nil {
+		t.Fatalf("Status() error = %v", err)
+	}
+	if !status.ExpiryKnown {
+		t.Fatal("ExpiryKnown = false, want true")
+	}
+	if status.ExpiresAtUnix != now.Add(time.Hour).Unix() {
+		t.Fatalf("ExpiresAtUnix = %d, want %d", status.ExpiresAtUnix, now.Add(time.Hour).Unix())
+	}
+	if status.ExpiresInSeconds != 3600 {
+		t.Fatalf("ExpiresInSeconds = %d, want 3600", status.ExpiresInSeconds)
+	}
+}
+
+func TestServiceAccessTokenRefreshesExpiredToken(t *testing.T) {
+	now := time.Unix(1_776_351_966, 0).UTC()
+	store := &memoryTokenStore{
+		token: Token{
+			AccessToken:   "expired-access",
+			RefreshToken:  "refresh-1",
+			ExpiresIn:     3600,
+			CreatedAtUnix: now.Add(-2 * time.Hour).Unix(),
+			ExpiresAtUnix: now.Add(-time.Hour).Unix(),
+		},
+		clientSecret: "secret-1",
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm() error = %v", err)
+		}
+		if got := r.PostForm.Get("grant_type"); got != "refresh_token" {
+			t.Fatalf("grant_type = %q, want refresh_token", got)
+		}
+		if got := r.PostForm.Get("refresh_token"); got != "refresh-1" {
+			t.Fatalf("refresh_token = %q, want refresh-1", got)
+		}
+		_, _ = w.Write([]byte(`{"access_token":"fresh-access","token_type":"Bearer","expires_in":1800}`))
+	}))
+	defer server.Close()
+
+	service := Service{
+		ClientID: "client-1",
+		Exchanger: Exchanger{
+			HTTPClient: server.Client(),
+			TokenURL:   server.URL,
+			Now:        func() time.Time { return now },
+		},
+		Store: store,
+		Now:   func() time.Time { return now },
+	}
+
+	accessToken, err := service.AccessToken(context.Background())
+	if err != nil {
+		t.Fatalf("AccessToken() error = %v", err)
+	}
+	if accessToken != "fresh-access" {
+		t.Fatalf("AccessToken() = %q, want fresh-access", accessToken)
+	}
+	if store.saveTokenCalls != 1 {
+		t.Fatalf("SaveToken() calls = %d, want 1", store.saveTokenCalls)
+	}
+	if store.token.RefreshToken != "refresh-1" {
+		t.Fatalf("RefreshToken = %q, want original refresh-1 preserved", store.token.RefreshToken)
+	}
+	if store.token.ExpiresAtUnix != now.Add(30*time.Minute).Unix() {
+		t.Fatalf("ExpiresAtUnix = %d, want %d", store.token.ExpiresAtUnix, now.Add(30*time.Minute).Unix())
 	}
 }
 

@@ -14,6 +14,9 @@ type Config struct {
 	Output struct {
 		Default string `yaml:"default"`
 	} `yaml:"output"`
+	Service struct {
+		Region string `yaml:"region"`
+	} `yaml:"service"`
 	Task struct {
 		DefaultProject string `yaml:"default_project"`
 		InboxProjectID string `yaml:"inbox_project_id"`
@@ -35,6 +38,7 @@ func NewStore(path string) *Store {
 func Default() Config {
 	var cfg Config
 	cfg.Output.Default = "table"
+	cfg.Service.Region = "ticktick"
 	return cfg
 }
 
