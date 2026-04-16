@@ -34,6 +34,8 @@ type ListTasksInput struct {
 	Priorities []domain.Priority
 	From       string
 	To         string
+	Today      bool
+	Overdue    bool
 }
 
 func (a TaskApp) List(ctx context.Context, in ListTasksInput) ([]domain.Task, map[string]string, error) {
@@ -78,6 +80,20 @@ func (a TaskApp) List(ctx context.Context, in ListTasksInput) ([]domain.Task, ma
 	tasks, err := a.Client.FilterTasks(ctx, token, filter)
 	if err != nil {
 		return nil, nil, err
+	}
+	now := time.Now()
+	if a.Now != nil {
+		now = a.Now()
+	}
+	if in.Today {
+		tasks = filterTasks(tasks, func(task domain.Task) bool {
+			return taskIsDueTodayOrOverdue(task, now)
+		})
+	}
+	if in.Overdue {
+		tasks = filterTasks(tasks, func(task domain.Task) bool {
+			return taskIsOverdue(task, now)
+		})
 	}
 	sortTasks(tasks)
 	return tasks, projectNames, nil
@@ -186,9 +202,30 @@ func taskIsDueTodayOrOverdue(task domain.Task, now time.Time) bool {
 	if task.Status != domain.StatusOpen || task.DueDate == nil {
 		return false
 	}
-	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	startOfToday := startOfDay(now)
 	endOfToday := startOfToday.Add(24 * time.Hour)
 	return task.DueDate.Before(endOfToday)
+}
+
+func taskIsOverdue(task domain.Task, now time.Time) bool {
+	if task.Status != domain.StatusOpen || task.DueDate == nil {
+		return false
+	}
+	return task.DueDate.Before(startOfDay(now))
+}
+
+func startOfDay(now time.Time) time.Time {
+	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+}
+
+func filterTasks(tasks []domain.Task, keep func(domain.Task) bool) []domain.Task {
+	filtered := make([]domain.Task, 0, len(tasks))
+	for _, task := range tasks {
+		if keep(task) {
+			filtered = append(filtered, task)
+		}
+	}
+	return filtered
 }
 
 func sortTasks(tasks []domain.Task) {

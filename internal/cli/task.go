@@ -31,15 +31,32 @@ func NewTaskCommand(resolveTaskApp TaskResolver, streams Streams) *cobra.Command
 	var priority int
 	var from string
 	var to string
+	var today bool
+	var overdue bool
 	ls := &cobra.Command{
 		Use:   "ls",
 		Short: "List tasks",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if today && overdue {
+				return errors.New("--today and --overdue cannot be used together")
+			}
+			if status == "completed" && today {
+				return errors.New("--today requires open tasks")
+			}
+			if status == "completed" && overdue {
+				return errors.New("--overdue requires open tasks")
+			}
 			taskApp, err := resolve()
 			if err != nil {
 				return err
 			}
-			input := app.ListTasksInput{Project: project, From: from, To: to}
+			input := app.ListTasksInput{
+				Project: project,
+				From:    from,
+				To:      to,
+				Today:   today,
+				Overdue: overdue,
+			}
 			if tag != "" {
 				input.Tags = []string{tag}
 			}
@@ -68,6 +85,8 @@ func NewTaskCommand(resolveTaskApp TaskResolver, streams Streams) *cobra.Command
 	ls.Flags().IntVar(&priority, "priority", 0, "Priority value: 0, 1, 3, or 5")
 	ls.Flags().StringVar(&from, "from", "", "Filter start date (YYYY-MM-DD or RFC3339)")
 	ls.Flags().StringVar(&to, "to", "", "Filter end date (YYYY-MM-DD or RFC3339)")
+	ls.Flags().BoolVar(&today, "today", false, "Only tasks due today or overdue")
+	ls.Flags().BoolVar(&overdue, "overdue", false, "Only overdue tasks")
 	ls.Flags().StringVar(&outputFormat, "output", "table", "Output format: table or json")
 	ls.Flags().BoolVar(&jsonOut, "json", false, "Print JSON")
 
