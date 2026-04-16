@@ -28,6 +28,8 @@ tick auth login \
 tick auth status
 tick project ls
 tick task ls --project Work
+tick task ls --today
+tick task ls --project Work --overdue
 tick today
 tick inbox
 tick task add "Write spec" --project Work --due 2026-04-10
