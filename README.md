@@ -78,6 +78,7 @@ tick today
 tick inbox
 tick task add "Write spec" --project Work --due 2026-04-10
 tick quick add "Write spec #Work !5 ^2026-04-10"
+tick config list
 tick config set task.default_project Work
 tick config get service.region
 ```

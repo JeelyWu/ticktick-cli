@@ -6,6 +6,7 @@ import (
 
 	"github.com/jeely/ticktick-cli/internal/config"
 	"github.com/jeely/ticktick-cli/internal/endpoint"
+	"gopkg.in/yaml.v3"
 )
 
 type ConfigApp struct {
@@ -33,6 +34,18 @@ func (a ConfigApp) Get(ctx context.Context, key string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported config key %q", key)
 	}
+}
+
+func (a ConfigApp) List(ctx context.Context) (string, error) {
+	cfg, err := a.Store.Load()
+	if err != nil {
+		return "", err
+	}
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func (a ConfigApp) Set(ctx context.Context, key, value string) error {
