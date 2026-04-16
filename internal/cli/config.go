@@ -35,6 +35,27 @@ func NewConfigCommand(resolveConfigApp ConfigResolver, streams Streams) *cobra.C
 		},
 	}
 
+	list := &cobra.Command{
+		Use:   "list",
+		Short: "Print the full config",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if resolveConfigApp == nil {
+				return errors.New("config command is unavailable")
+			}
+			configApp, err := resolveConfigApp()
+			if err != nil {
+				return err
+			}
+			output, err := configApp.List(cmd.Context())
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprint(streams.Out, output)
+			return err
+		},
+	}
+
 	set := &cobra.Command{
 		Use:   "set <key> <value>",
 		Short: "Persist a config value",
@@ -51,7 +72,7 @@ func NewConfigCommand(resolveConfigApp ConfigResolver, streams Streams) *cobra.C
 		},
 	}
 
-	cmd.AddCommand(get, set)
+	cmd.AddCommand(get, list, set)
 	return cmd
 }
 
