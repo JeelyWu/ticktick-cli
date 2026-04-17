@@ -4,6 +4,35 @@
 
 `tick` is a Go-based CLI for TickTick and Dida365 via the official Open API.
 
+## Install
+
+### GitHub Releases
+
+Every tagged release publishes platform-specific archives to GitHub Releases:
+
+- macOS: `darwin/arm64`, `darwin/amd64`
+- Linux: `linux/arm64`, `linux/amd64`
+- Windows: `windows/amd64`
+
+Download the archive that matches your platform from the releases page and unpack `tick` into a directory on your `PATH`.
+
+### macOS and Linux install script
+
+The repository includes a release installer for Unix-like systems:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JeelyWu/ticktick-cli/master/scripts/install.sh | bash
+```
+
+Useful overrides:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JeelyWu/ticktick-cli/master/scripts/install.sh | \
+  VERSION=v0.1.0 INSTALL_DIR="$HOME/.local/bin" bash
+```
+
+If you prefer not to pipe to `bash`, download [scripts/install.sh](scripts/install.sh) first and run it locally.
+
 ## Prerequisites
 
 1. Create a developer application for your region
@@ -15,6 +44,13 @@
 
 ```bash
 make build
+```
+
+To build release archives locally, install GoReleaser and run:
+
+```bash
+make release-check
+make release
 ```
 
 ## First-time auth
@@ -88,5 +124,15 @@ tick config get service.region
 ## Release artifacts
 
 ```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Pushing a `v*` tag triggers [release.yml](.github/workflows/release.yml), which runs tests, builds archives with GoReleaser, generates checksums, and uploads everything to GitHub Releases.
+
+For local dry runs, install GoReleaser from https://goreleaser.com/install/ and use:
+
+```bash
+make release-check
 make release
 ```
