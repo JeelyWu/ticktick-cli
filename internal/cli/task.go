@@ -135,6 +135,53 @@ func NewTaskCommand(resolveTaskApp TaskResolver, resolveConfigApp ConfigResolver
 			}
 			addInput.Title = args[0]
 			addInput.Priority = domain.Priority(addPriority)
+
+			if addInput.ProjectRef == "" && resolveConfigApp != nil {
+				configApp, err := resolveConfigApp()
+				if err != nil {
+					return err
+				}
+				defaultProject, err := configApp.Get(cmd.Context(), "task.default_project")
+				if err != nil {
+					return err
+				}
+				addInput.ProjectRef = defaultProject
+			}
+
+			if addInput.ProjectRef == "" {
+				if !IsTerminal(streams) {
+					return errors.New("no project specified: use --project or set default_project")
+				}
+				projects, err := taskApp.ListProjects(cmd.Context())
+				if err != nil {
+					return err
+				}
+				if len(projects) == 0 {
+					return errors.New("no projects available")
+				}
+				project, err := SelectProject(streams, projects)
+				if err != nil {
+					return err
+				}
+				addInput.ProjectRef = project.Name
+
+				if resolveConfigApp != nil {
+					configApp, err := resolveConfigApp()
+					if err != nil {
+						return err
+					}
+					ok, err := Confirm(streams, "Set as default project?")
+					if err != nil {
+						return err
+					}
+					if ok {
+						if err := configApp.Set(cmd.Context(), "task.default_project", project.Name); err != nil {
+							return err
+						}
+					}
+				}
+			}
+
 			task, err := taskApp.Add(cmd.Context(), addInput)
 			if err != nil {
 				return err
