@@ -247,6 +247,21 @@ func parseListTime(value string) (time.Time, error) {
 	return time.Parse(time.RFC3339, value)
 }
 
+func (a TaskApp) ListProjects(ctx context.Context) ([]domain.Project, error) {
+	token, err := a.Auth.AccessToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	projects, err := a.Client.ListProjects(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(projects, func(i, j int) bool {
+		return projects[i].SortOrder < projects[j].SortOrder
+	})
+	return projects, nil
+}
+
 func (a TaskApp) Add(ctx context.Context, in domain.CreateTaskInput) (domain.Task, error) {
 	token, err := a.Auth.AccessToken(ctx)
 	if err != nil {
