@@ -11,19 +11,11 @@ import (
 )
 
 type Config struct {
-	Output struct {
-		Default string `yaml:"default"`
-	} `yaml:"output"`
-	Service struct {
-		Region string `yaml:"region"`
-	} `yaml:"service"`
-	Task struct {
-		DefaultProject string `yaml:"default_project"`
-	} `yaml:"task"`
-	OAuth struct {
-		ClientID    string `yaml:"client_id"`
-		RedirectURL string `yaml:"redirect_url"`
-	} `yaml:"oauth"`
+	Output         string `yaml:"output"`
+	Region         string `yaml:"region"`
+	DefaultProject string `yaml:"default_project"`
+	ClientID       string `yaml:"client_id"`
+	RedirectURL    string `yaml:"redirect_url"`
 }
 
 type Store struct {
@@ -36,8 +28,8 @@ func NewStore(path string) *Store {
 
 func Default() Config {
 	var cfg Config
-	cfg.Output.Default = "table"
-	cfg.Service.Region = "ticktick"
+	cfg.Output = "table"
+	cfg.Region = "ticktick"
 	return cfg
 }
 

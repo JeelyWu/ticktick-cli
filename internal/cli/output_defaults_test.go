@@ -78,7 +78,7 @@ func testConfigResolver(t *testing.T, output string) ConfigResolver {
 	t.Helper()
 	store := config.NewStore(t.TempDir() + "/config.yaml")
 	configApp := &app.ConfigApp{Store: store}
-	if err := configApp.Set(context.Background(), "output.default", output); err != nil {
+	if err := configApp.Set(context.Background(), "output", output); err != nil {
 		t.Fatalf("Set() error = %v", err)
 	}
 	return func() (*app.ConfigApp, error) {

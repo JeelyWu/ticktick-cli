@@ -169,7 +169,7 @@ func (s Service) AccessToken(ctx context.Context) (string, error) {
 		return "", errors.New("stored access token expired and no refresh token is available; run `tick auth login`")
 	}
 	if s.ClientID == "" {
-		return "", errors.New("oauth client-id is required to refresh tokens; run `tick auth login` again or set oauth.client_id")
+		return "", errors.New("oauth client-id is required to refresh tokens; run `tick auth login` again or set client_id")
 	}
 	clientSecret, err := s.Store.LoadClientSecret()
 	if err != nil {

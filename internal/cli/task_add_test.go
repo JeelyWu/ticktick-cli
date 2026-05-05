@@ -65,7 +65,7 @@ func TestTaskAddUsesDefaultProject(t *testing.T) {
 	tmpDir := t.TempDir()
 	store := config.NewStore(tmpDir + "/config.yaml")
 	var cfg config.Config
-	cfg.Task.DefaultProject = "Work"
+	cfg.DefaultProject = "Work"
 	if err := store.Save(cfg); err != nil {
 		t.Fatalf("Save() error = %v", err)
 	}

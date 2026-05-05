@@ -141,7 +141,7 @@ func NewTaskCommand(resolveTaskApp TaskResolver, resolveConfigApp ConfigResolver
 				if err != nil {
 					return err
 				}
-				defaultProject, err := configApp.Get(cmd.Context(), "task.default_project")
+				defaultProject, err := configApp.Get(cmd.Context(), "default_project")
 				if err != nil {
 					return err
 				}
@@ -175,7 +175,7 @@ func NewTaskCommand(resolveTaskApp TaskResolver, resolveConfigApp ConfigResolver
 						return err
 					}
 					if ok {
-						if err := configApp.Set(cmd.Context(), "task.default_project", project.Name); err != nil {
+						if err := configApp.Set(cmd.Context(), "default_project", project.Name); err != nil {
 							return err
 						}
 					}

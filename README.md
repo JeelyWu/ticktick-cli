@@ -22,7 +22,7 @@ It covers a practical daily loop:
 - Project commands: `add`, `get`, `ls`, `rm`, `update`
 - Task commands: `add`, `get`, `ls`, `update`, `move`, `done`, `rm`
 - Convenience commands: `today`, `inbox`, `quick add`
-- Configurable local defaults for output format, default project, inbox project, and service region
+- Configurable local defaults for output format, default project, and service region
 
 ## Install
 
@@ -131,17 +131,17 @@ export TICK_CLIENT_SECRET=YOUR_CLIENT_SECRET
 `tick` defaults to `ticktick`. Switch to `dida365` if you use the mainland China service.
 
 ```bash
-tick config set service.region ticktick
+tick config set region ticktick
 ```
 
 ```bash
-tick config set service.region dida365
+tick config set region dida365
 ```
 
 Check the current value:
 
 ```bash
-tick config get service.region
+tick config get region
 ```
 
 If you change regions after you already logged in, clear the stored token and authenticate again:
@@ -156,7 +156,7 @@ tick auth login --client-id YOUR_CLIENT_ID --redirect-url http://localhost:14573
 TickTick international:
 
 ```bash
-tick config set service.region ticktick
+tick config set region ticktick
 export TICK_CLIENT_SECRET=YOUR_CLIENT_SECRET
 tick auth login \
   --client-id YOUR_CLIENT_ID \
@@ -166,7 +166,7 @@ tick auth login \
 Dida365:
 
 ```bash
-tick config set service.region dida365
+tick config set region dida365
 export TICK_CLIENT_SECRET=YOUR_CLIENT_SECRET
 tick auth login \
   --client-id YOUR_CLIENT_ID \
@@ -400,10 +400,10 @@ tick quick add "Write spec #Work !5 ^2026-04-10"
 tick quick add "Buy milk #Personal ^2026-04-18"
 ```
 
-If `task.default_project` is configured, quick add can omit `#ProjectName`:
+If `default_project` is configured, quick add can omit `#ProjectName`:
 
 ```bash
-tick config set task.default_project Work
+tick config set default_project Work
 tick quick add "Prepare launch notes !3 ^2026-04-22"
 ```
 
@@ -418,25 +418,19 @@ tick config list
 Read one value:
 
 ```bash
-tick config get service.region
+tick config get region
 ```
 
 Set the default task output format:
 
 ```bash
-tick config set output.default json
+tick config set output json
 ```
 
 Set a default project for `quick add`:
 
 ```bash
-tick config set task.default_project Work
-```
-
-Set the inbox project ID used by `tick inbox`:
-
-```bash
-tick config set task.inbox_project_id YOUR_INBOX_PROJECT_ID
+tick config set default_project Work
 ```
 
 ## Output And Priorities
@@ -449,7 +443,7 @@ Supported output formats:
 You can set the default with:
 
 ```bash
-tick config set output.default table
+tick config set output table
 ```
 
 Priority values:

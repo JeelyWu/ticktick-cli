@@ -76,11 +76,11 @@ func TestAuthAppLoginPersistsConfigBeforeServiceLogin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.OAuth.ClientID != "client-1" {
-		t.Fatalf("OAuth.ClientID = %q, want client-1", cfg.OAuth.ClientID)
+	if cfg.ClientID != "client-1" {
+		t.Fatalf("ClientID = %q, want client-1", cfg.ClientID)
 	}
-	if cfg.OAuth.RedirectURL != "http://localhost:14573/callback" {
-		t.Fatalf("OAuth.RedirectURL = %q, want callback", cfg.OAuth.RedirectURL)
+	if cfg.RedirectURL != "http://localhost:14573/callback" {
+		t.Fatalf("RedirectURL = %q, want callback", cfg.RedirectURL)
 	}
 }
 
@@ -103,11 +103,11 @@ func TestAuthAppLoginPersistsConfigOnSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.OAuth.ClientID != "client-1" {
-		t.Fatalf("OAuth.ClientID = %q, want client-1", cfg.OAuth.ClientID)
+	if cfg.ClientID != "client-1" {
+		t.Fatalf("ClientID = %q, want client-1", cfg.ClientID)
 	}
-	if cfg.OAuth.RedirectURL != "http://localhost:14573/callback" {
-		t.Fatalf("OAuth.RedirectURL = %q, want callback", cfg.OAuth.RedirectURL)
+	if cfg.RedirectURL != "http://localhost:14573/callback" {
+		t.Fatalf("RedirectURL = %q, want callback", cfg.RedirectURL)
 	}
 }
 
@@ -127,7 +127,7 @@ func TestAuthAppLoginSucceedsWithoutConfigStoreWhenInputsAreExplicit(t *testing.
 
 func TestAuthAppLoginWithExplicitInputsIgnoresMalformedConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte("oauth: [\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("client_id: [\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
@@ -149,11 +149,11 @@ func TestAuthAppLoginWithExplicitInputsIgnoresMalformedConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.OAuth.ClientID != "client-1" {
-		t.Fatalf("OAuth.ClientID = %q, want client-1", cfg.OAuth.ClientID)
+	if cfg.ClientID != "client-1" {
+		t.Fatalf("ClientID = %q, want client-1", cfg.ClientID)
 	}
-	if cfg.OAuth.RedirectURL != "http://localhost:14573/callback" {
-		t.Fatalf("OAuth.RedirectURL = %q, want callback", cfg.OAuth.RedirectURL)
+	if cfg.RedirectURL != "http://localhost:14573/callback" {
+		t.Fatalf("RedirectURL = %q, want callback", cfg.RedirectURL)
 	}
 }
 
