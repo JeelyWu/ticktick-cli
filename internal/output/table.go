@@ -34,3 +34,22 @@ func PrintTasksTable(w io.Writer, tasks []domain.Task, projectNames map[string]s
 	}
 	return tw.Flush()
 }
+
+func PrintFocusTable(w io.Writer, focuses []domain.Focus, projectNames map[string]string) error {
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	_, _ = fmt.Fprintln(tw, "ID\tTITLE\tPROJECT\tSTART\tEND\tMODE\tSTATUS")
+	for _, f := range focuses {
+		_, _ = fmt.Fprintf(
+			tw,
+			"%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			f.ID,
+			f.Title,
+			projectNames[f.ProjectID],
+			FormatTime(f.StartDate),
+			FormatTime(f.EndDate),
+			f.Mode.String(),
+			f.Status.String(),
+		)
+	}
+	return tw.Flush()
+}

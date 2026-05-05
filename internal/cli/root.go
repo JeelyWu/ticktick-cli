@@ -21,6 +21,7 @@ type RootOptions struct {
 	RegionResolver      RegionResolver
 	ProjectResolver     ProjectResolver
 	TaskResolver        TaskResolver
+	FocusResolver       FocusResolver
 	QuickResolver       QuickResolver
 	ConfigResolver      ConfigResolver
 }
@@ -51,6 +52,9 @@ func NewRootCommand(opts RootOptions) *cobra.Command {
 	}
 	if opts.QuickResolver != nil {
 		cmd.AddCommand(NewQuickCommand(opts.QuickResolver, opts.Streams))
+	}
+	if opts.FocusResolver != nil {
+		cmd.AddCommand(NewFocusCommand(opts.FocusResolver, opts.ConfigResolver, opts.Streams))
 	}
 	if opts.ConfigResolver != nil {
 		cmd.AddCommand(NewConfigCommand(opts.ConfigResolver, opts.Streams))
