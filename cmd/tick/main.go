@@ -131,6 +131,16 @@ func main() {
 				ConfigStore: store,
 			}, nil
 		},
+		HabitResolver: func() (*app.HabitApp, error) {
+			_, authService, api, err := buildRuntime(streams)
+			if err != nil {
+				return nil, err
+			}
+			return &app.HabitApp{
+				Auth:   authService,
+				Client: api,
+			}, nil
+		},
 		ConfigResolver: func() (*app.ConfigApp, error) {
 			configPath, err := config.DefaultPath()
 			if err != nil {
