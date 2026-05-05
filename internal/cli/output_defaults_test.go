@@ -121,37 +121,6 @@ func TestTodayCommandUsesConfiguredJSONOutput(t *testing.T) {
 	}
 }
 
-func TestInboxCommandUsesConfiguredJSONOutput(t *testing.T) {
-	streams, stdout, stderr := newTestStreams()
-	project := domain.Project{ID: "p1", Name: "Inbox"}
-	taskApp := &app.TaskApp{
-		Auth:   fakeTokenSource{},
-		Client: fakeTaskAPI{projects: []domain.Project{project}, tasks: []domain.Task{{ID: "t1", ProjectID: "p1", Title: "Ship it", Priority: domain.PriorityHigh, Status: domain.StatusOpen}}},
-	}
-	cmd := NewRootCommand(RootOptions{
-		Version: "dev",
-		Streams: streams,
-		TaskResolver: func() (*app.TaskApp, error) {
-			return taskApp, nil
-		},
-		ConfigResolver: testConfigResolver(t, "json"),
-	})
-	cmd.SetArgs([]string{"inbox"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-	if !strings.Contains(stdout.String(), "\"ID\": \"t1\"") {
-		t.Fatalf("stdout = %q, want JSON output", stdout.String())
-	}
-	if strings.HasPrefix(stdout.String(), "ID") {
-		t.Fatalf("stdout = %q, want configured JSON instead of table", stdout.String())
-	}
-	if stderr.Len() != 0 {
-		t.Fatalf("stderr = %q, want empty", stderr.String())
-	}
-}
-
 func TestTaskListCommandFlagOverridesConfiguredJSONOutput(t *testing.T) {
 	streams, stdout, stderr := newTestStreams()
 	project := domain.Project{ID: "p1", Name: "Inbox"}

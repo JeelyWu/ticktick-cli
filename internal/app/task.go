@@ -146,39 +146,6 @@ func (a TaskApp) Today(ctx context.Context) ([]domain.Task, map[string]string, e
 	return tasks, projectNames, nil
 }
 
-func (a TaskApp) Inbox(ctx context.Context) ([]domain.Task, map[string]string, error) {
-	token, err := a.Auth.AccessToken(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	ref := "Inbox"
-	if a.ConfigStore != nil {
-		cfg, err := a.ConfigStore.Load()
-		if err != nil {
-			return nil, nil, err
-		}
-		if cfg.Task.InboxProjectID != "" {
-			ref = cfg.Task.InboxProjectID
-		}
-	}
-
-	projects, err := a.Client.ListProjects(ctx, token)
-	if err != nil {
-		return nil, nil, err
-	}
-	project, err := ResolveProject(ref, projects)
-	if err != nil {
-		return nil, nil, err
-	}
-	_, tasks, err := a.Client.GetProjectData(ctx, token, project.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-	sortTasks(tasks)
-	return tasks, map[string]string{project.ID: project.Name}, nil
-}
-
 func resolveTaskReference(ref string, tasks []domain.Task) (domain.Task, error) {
 	matches := make([]domain.Task, 0, 1)
 	names := make([]string, 0, 1)
