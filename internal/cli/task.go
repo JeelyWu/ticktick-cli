@@ -154,7 +154,7 @@ func NewTaskCommand(resolveTaskApp TaskResolver, resolveConfigApp ConfigResolver
 	var updatePriority int
 	update := &cobra.Command{
 		Use:   "update <task>",
-		Short: "Update an open task",
+		Short: "Update a task",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskApp, err := resolve()
@@ -207,6 +207,25 @@ func NewTaskCommand(resolveTaskApp TaskResolver, resolveConfigApp ConfigResolver
 		},
 	}
 	done.Flags().StringVar(&doneProject, "project", "", "Project ID or exact name")
+
+	var reopenProject string
+	reopen := &cobra.Command{
+		Use:   "reopen <task>",
+		Short: "Reopen a completed task",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskApp, err := resolve()
+			if err != nil {
+				return err
+			}
+			if err := taskApp.Reopen(cmd.Context(), args[0], reopenProject); err != nil {
+				return err
+			}
+			_, err = fmt.Fprintln(streams.Out, "Reopened")
+			return err
+		},
+	}
+	reopen.Flags().StringVar(&reopenProject, "project", "", "Project ID or exact name")
 
 	var removeProject string
 	var yes bool
@@ -265,7 +284,7 @@ func NewTaskCommand(resolveTaskApp TaskResolver, resolveConfigApp ConfigResolver
 	move.Flags().StringVar(&toProject, "to", "", "Destination project ID or exact name")
 	_ = move.MarkFlagRequired("to")
 
-	cmd.AddCommand(ls, get, add, update, done, rm, move)
+	cmd.AddCommand(ls, get, add, update, done, reopen, rm, move)
 	return cmd
 }
 

@@ -156,6 +156,7 @@ func (c *Client) UpdateTask(ctx context.Context, token string, task domain.Task)
 		"desc":      task.Description,
 		"isAllDay":  task.IsAllDay,
 		"priority":  int(task.Priority),
+		"status":    int(task.Status),
 	}
 	if task.StartDate != nil {
 		body["startDate"] = task.StartDate.Format("2006-01-02T15:04:05-0700")
