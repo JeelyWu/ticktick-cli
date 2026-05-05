@@ -41,11 +41,12 @@ func (c *Client) ListProjects(ctx context.Context, token string) ([]domain.Proje
 	return projects, nil
 }
 
-func (c *Client) CreateProject(ctx context.Context, token, name, color, kind string) (domain.Project, error) {
+func (c *Client) CreateProject(ctx context.Context, token, name, kind string) (domain.Project, error) {
 	body := map[string]any{
-		"name":  name,
-		"color": color,
-		"kind":  kind,
+		"name": name,
+	}
+	if kind != "" {
+		body["kind"] = kind
 	}
 	var dto projectDTO
 	if err := c.DoJSON(ctx, http.MethodPost, "/open/v1/project", token, body, &dto); err != nil {
@@ -64,11 +65,13 @@ func (c *Client) CreateProject(ctx context.Context, token, name, color, kind str
 	}, nil
 }
 
-func (c *Client) UpdateProject(ctx context.Context, token, projectID, name, color, kind string) (domain.Project, error) {
-	body := map[string]any{
-		"name":  name,
-		"color": color,
-		"kind":  kind,
+func (c *Client) UpdateProject(ctx context.Context, token, projectID, name, kind string) (domain.Project, error) {
+	body := map[string]any{}
+	if name != "" {
+		body["name"] = name
+	}
+	if kind != "" {
+		body["kind"] = kind
 	}
 	var dto projectDTO
 	if err := c.DoJSON(ctx, http.MethodPost, "/open/v1/project/"+projectID, token, body, &dto); err != nil {
