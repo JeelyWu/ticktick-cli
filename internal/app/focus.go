@@ -5,7 +5,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jeely/ticktick-cli/internal/config"
 	"github.com/jeely/ticktick-cli/internal/domain"
 )
 
@@ -18,10 +17,9 @@ type FocusAPI interface {
 }
 
 type FocusApp struct {
-	Auth        ProjectTokenSource
-	Client      FocusAPI
-	ConfigStore *config.Store
-	Now         func() time.Time
+	Auth   ProjectTokenSource
+	Client FocusAPI
+	Now    func() time.Time
 }
 
 type ListFocusInput struct {

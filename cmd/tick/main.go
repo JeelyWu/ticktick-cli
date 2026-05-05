@@ -132,14 +132,13 @@ func main() {
 			}, nil
 		},
 		FocusResolver: func() (*app.FocusApp, error) {
-			store, authService, api, err := buildRuntime(streams)
+			_, authService, api, err := buildRuntime(streams)
 			if err != nil {
 				return nil, err
 			}
 			return &app.FocusApp{
-				Auth:        authService,
-				Client:      api,
-				ConfigStore: store,
+				Auth:   authService,
+				Client: api,
 			}, nil
 		},
 		ConfigResolver: func() (*app.ConfigApp, error) {

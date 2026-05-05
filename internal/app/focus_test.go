@@ -24,7 +24,12 @@ func (r *recordingFocusAPI) ListProjects(context.Context, string) ([]domain.Proj
 	return []domain.Project{{ID: "p1", Name: "Inbox"}}, nil
 }
 
-func (r *recordingFocusAPI) GetFocus(context.Context, string, string) (domain.Focus, error) {
+func (r *recordingFocusAPI) GetFocus(_ context.Context, _ string, focusID string) (domain.Focus, error) {
+	for _, f := range r.focuses {
+		if f.ID == focusID {
+			return f, nil
+		}
+	}
 	return domain.Focus{}, nil
 }
 
@@ -155,6 +160,57 @@ func TestFocusAppStartResolvesProject(t *testing.T) {
 	}
 	if client.startCalls[0].ProjectID != "p2" {
 		t.Fatalf("start call ProjectID = %q, want p2", client.startCalls[0].ProjectID)
+	}
+}
+
+func TestFocusAppGet(t *testing.T) {
+	client := &recordingFocusAPI{
+		focuses: []domain.Focus{{ID: "f1", Title: "Deep work"}},
+	}
+	focusApp := FocusApp{
+		Auth:   stubTokenSource{},
+		Client: client,
+	}
+
+	focus, err := focusApp.Get(context.Background(), "f1")
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if focus.ID != "f1" {
+		t.Fatalf("focus.ID = %q, want f1", focus.ID)
+	}
+	if focus.Title != "Deep work" {
+		t.Fatalf("focus.Title = %q, want Deep work", focus.Title)
+	}
+}
+
+func TestFocusAppStartWithCustomTime(t *testing.T) {
+	client := &recordingFocusAPI{
+		projects: []domain.Project{{ID: "p2", Name: "Work"}},
+	}
+	focusApp := FocusApp{
+		Auth:   stubTokenSource{},
+		Client: client,
+	}
+
+	_, err := focusApp.Start(context.Background(), StartFocusAppInput{
+		Title:      "Deep work",
+		ProjectRef: "Work",
+		Mode:       domain.FocusModeTimer,
+		StartRaw:   "2026-05-01",
+	})
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	if len(client.startCalls) != 1 {
+		t.Fatalf("start calls = %d, want 1", len(client.startCalls))
+	}
+	if client.startCalls[0].StartDate == nil {
+		t.Fatalf("start call StartDate = nil, want non-nil")
+	}
+	want := time.Date(2026, 5, 1, 0, 0, 0, 0, time.Local)
+	if !client.startCalls[0].StartDate.Equal(want) {
+		t.Fatalf("start call StartDate = %v, want %v", client.startCalls[0].StartDate, want)
 	}
 }
 
