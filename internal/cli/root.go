@@ -48,7 +48,6 @@ func NewRootCommand(opts RootOptions) *cobra.Command {
 	if opts.TaskResolver != nil {
 		cmd.AddCommand(NewTaskCommand(opts.TaskResolver, opts.ConfigResolver, opts.Streams))
 		cmd.AddCommand(NewTodayCommand(opts.TaskResolver, opts.ConfigResolver, opts.Streams))
-		cmd.AddCommand(NewInboxCommand(opts.TaskResolver, opts.ConfigResolver, opts.Streams))
 	}
 	if opts.QuickResolver != nil {
 		cmd.AddCommand(NewQuickCommand(opts.QuickResolver, opts.Streams))

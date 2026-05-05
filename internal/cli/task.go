@@ -299,34 +299,3 @@ func NewTodayCommand(resolveTaskApp TaskResolver, resolveConfigApp ConfigResolve
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Print JSON")
 	return cmd
 }
-
-func NewInboxCommand(resolveTaskApp TaskResolver, resolveConfigApp ConfigResolver, streams Streams) *cobra.Command {
-	var jsonOut bool
-	cmd := &cobra.Command{
-		Use:   "inbox",
-		Short: "Show tasks from the configured inbox project",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if resolveTaskApp == nil {
-				return errors.New("inbox command is unavailable")
-			}
-			taskApp, err := resolveTaskApp()
-			if err != nil {
-				return err
-			}
-			tasks, names, err := taskApp.Inbox(cmd.Context())
-			if err != nil {
-				return err
-			}
-			format, err := resolveOutputFormat(cmd, resolveConfigApp, jsonOut, "")
-			if err != nil {
-				return err
-			}
-			if format == "json" {
-				return output.PrintJSON(streams.Out, tasks)
-			}
-			return output.PrintTasksTable(streams.Out, tasks, names)
-		},
-	}
-	cmd.Flags().BoolVar(&jsonOut, "json", false, "Print JSON")
-	return cmd
-}

@@ -74,7 +74,6 @@ func TestConfigAppList(t *testing.T) {
 		"default: json",
 		"task:",
 		"default_project: Work",
-		"inbox_project_id: \"\"",
 		"oauth:",
 		"client_id: client-1",
 	} {

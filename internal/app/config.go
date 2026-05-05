@@ -25,8 +25,6 @@ func (a ConfigApp) Get(ctx context.Context, key string) (string, error) {
 		return cfg.Service.Region, nil
 	case "task.default_project":
 		return cfg.Task.DefaultProject, nil
-	case "task.inbox_project_id":
-		return cfg.Task.InboxProjectID, nil
 	case "oauth.client_id":
 		return cfg.OAuth.ClientID, nil
 	case "oauth.redirect_url":
@@ -66,8 +64,6 @@ func (a ConfigApp) Set(ctx context.Context, key, value string) error {
 		cfg.Service.Region = value
 	case "task.default_project":
 		cfg.Task.DefaultProject = value
-	case "task.inbox_project_id":
-		cfg.Task.InboxProjectID = value
 	case "oauth.client_id":
 		cfg.OAuth.ClientID = value
 	case "oauth.redirect_url":

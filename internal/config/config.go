@@ -19,7 +19,6 @@ type Config struct {
 	} `yaml:"service"`
 	Task struct {
 		DefaultProject string `yaml:"default_project"`
-		InboxProjectID string `yaml:"inbox_project_id"`
 	} `yaml:"task"`
 	OAuth struct {
 		ClientID    string `yaml:"client_id"`
