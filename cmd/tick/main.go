@@ -39,7 +39,7 @@ func resolveRegion() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return cfg.Service.Region, nil
+	return cfg.Region, nil
 }
 
 func buildRuntime(streams cli.Streams) (*config.Store, auth.Service, *ticktick.Client, error) {
@@ -47,13 +47,13 @@ func buildRuntime(streams cli.Streams) (*config.Store, auth.Service, *ticktick.C
 	if err != nil {
 		return nil, auth.Service{}, nil, err
 	}
-	endpoints, err := endpoint.ForRegion(cfg.Service.Region)
+	endpoints, err := endpoint.ForRegion(cfg.Region)
 	if err != nil {
 		return nil, auth.Service{}, nil, err
 	}
 	return store, auth.Service{
 		AuthorizeURL: endpoints.AuthorizeURL,
-		ClientID:     cfg.OAuth.ClientID,
+		ClientID:     cfg.ClientID,
 		Exchanger: auth.Exchanger{
 			TokenURL: endpoints.TokenURL,
 		},

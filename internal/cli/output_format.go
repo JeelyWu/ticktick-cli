@@ -20,7 +20,7 @@ func resolveOutputFormat(cmd *cobra.Command, resolveConfigApp ConfigResolver, js
 	if err != nil {
 		return "", err
 	}
-	value, err := configApp.Get(cmd.Context(), "output.default")
+	value, err := configApp.Get(cmd.Context(), "output")
 	if err != nil {
 		return "", err
 	}

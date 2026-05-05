@@ -19,16 +19,16 @@ func (a ConfigApp) Get(ctx context.Context, key string) (string, error) {
 		return "", err
 	}
 	switch key {
-	case "output.default":
-		return cfg.Output.Default, nil
-	case "service.region":
-		return cfg.Service.Region, nil
-	case "task.default_project":
-		return cfg.Task.DefaultProject, nil
-	case "oauth.client_id":
-		return cfg.OAuth.ClientID, nil
-	case "oauth.redirect_url":
-		return cfg.OAuth.RedirectURL, nil
+	case "output":
+		return cfg.Output, nil
+	case "region":
+		return cfg.Region, nil
+	case "default_project":
+		return cfg.DefaultProject, nil
+	case "client_id":
+		return cfg.ClientID, nil
+	case "redirect_url":
+		return cfg.RedirectURL, nil
 	default:
 		return "", fmt.Errorf("unsupported config key %q", key)
 	}
@@ -52,22 +52,22 @@ func (a ConfigApp) Set(ctx context.Context, key, value string) error {
 		return err
 	}
 	switch key {
-	case "output.default":
+	case "output":
 		if value != "table" && value != "json" {
-			return fmt.Errorf("unsupported value %q for output.default", value)
+			return fmt.Errorf("unsupported value %q for output", value)
 		}
-		cfg.Output.Default = value
-	case "service.region":
+		cfg.Output = value
+	case "region":
 		if _, err := endpoint.ForRegion(value); err != nil {
 			return err
 		}
-		cfg.Service.Region = value
-	case "task.default_project":
-		cfg.Task.DefaultProject = value
-	case "oauth.client_id":
-		cfg.OAuth.ClientID = value
-	case "oauth.redirect_url":
-		cfg.OAuth.RedirectURL = value
+		cfg.Region = value
+	case "default_project":
+		cfg.DefaultProject = value
+	case "client_id":
+		cfg.ClientID = value
+	case "redirect_url":
+		cfg.RedirectURL = value
 	default:
 		return fmt.Errorf("unsupported config key %q", key)
 	}

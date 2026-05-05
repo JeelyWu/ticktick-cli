@@ -22,7 +22,7 @@
 - 项目命令：`add`、`get`、`ls`、`rm`、`update`
 - 任务命令：`add`、`get`、`ls`、`update`、`move`、`done`、`rm`
 - 便捷命令：`today`、`inbox`、`quick add`
-- 支持本地默认配置：输出格式、默认项目、收件箱项目、服务区域
+- 支持本地默认配置：输出格式、默认项目、服务区域
 
 ## 安装
 
@@ -131,17 +131,17 @@ export TICK_CLIENT_SECRET=YOUR_CLIENT_SECRET
 `tick` 默认使用 `ticktick`。如果你使用滴答清单中国大陆版，需要切换到 `dida365`。
 
 ```bash
-tick config set service.region ticktick
+tick config set region ticktick
 ```
 
 ```bash
-tick config set service.region dida365
+tick config set region dida365
 ```
 
 查看当前配置：
 
 ```bash
-tick config get service.region
+tick config get region
 ```
 
 如果你已经登录过，又要切换区域，先清掉旧 token，再重新认证：
@@ -156,7 +156,7 @@ tick auth login --client-id YOUR_CLIENT_ID --redirect-url http://localhost:14573
 TickTick 国际版：
 
 ```bash
-tick config set service.region ticktick
+tick config set region ticktick
 export TICK_CLIENT_SECRET=YOUR_CLIENT_SECRET
 tick auth login \
   --client-id YOUR_CLIENT_ID \
@@ -166,7 +166,7 @@ tick auth login \
 滴答清单：
 
 ```bash
-tick config set service.region dida365
+tick config set region dida365
 export TICK_CLIENT_SECRET=YOUR_CLIENT_SECRET
 tick auth login \
   --client-id YOUR_CLIENT_ID \
@@ -400,10 +400,10 @@ tick quick add "Write spec #Work !5 ^2026-04-10"
 tick quick add "Buy milk #Personal ^2026-04-18"
 ```
 
-如果已经配置了 `task.default_project`，可以省略 `#ProjectName`：
+如果已经配置了 `default_project`，可以省略 `#ProjectName`：
 
 ```bash
-tick config set task.default_project Work
+tick config set default_project Work
 tick quick add "Prepare launch notes !3 ^2026-04-22"
 ```
 
@@ -418,25 +418,19 @@ tick config list
 读取单个配置值：
 
 ```bash
-tick config get service.region
+tick config get region
 ```
 
 设置默认输出格式：
 
 ```bash
-tick config set output.default json
+tick config set output json
 ```
 
 为 `quick add` 设置默认项目：
 
 ```bash
-tick config set task.default_project Work
-```
-
-设置 `tick inbox` 使用的 inbox 项目 ID：
-
-```bash
-tick config set task.inbox_project_id YOUR_INBOX_PROJECT_ID
+tick config set default_project Work
 ```
 
 ## 输出格式与优先级
@@ -449,7 +443,7 @@ tick config set task.inbox_project_id YOUR_INBOX_PROJECT_ID
 设置默认输出格式：
 
 ```bash
-tick config set output.default table
+tick config set output table
 ```
 
 优先级取值：

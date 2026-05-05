@@ -54,7 +54,7 @@ func (a QuickAddApp) Add(ctx context.Context, raw string) (domain.Task, error) {
 		if err != nil {
 			return domain.Task{}, err
 		}
-		input.ProjectRef = cfg.Task.DefaultProject
+		input.ProjectRef = cfg.DefaultProject
 	}
 	return a.TaskApp.Add(ctx, input)
 }
