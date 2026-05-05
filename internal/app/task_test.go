@@ -15,17 +15,49 @@ func (stubTokenSource) AccessToken(context.Context) (string, error) {
 }
 
 type recordingTaskAPI struct {
+	projects    []domain.Project
 	filterTasks []domain.Task
 	lastFilter  domain.TaskFilter
+
+	updateCalls []domain.Task
+	deleteCalls []deleteCall
+	moveCalls   []moveCall
+}
+
+type deleteCall struct {
+	ProjectID string
+	TaskID    string
+}
+
+type moveCall struct {
+	FromProjectID string
+	ToProjectID   string
+	TaskID        string
 }
 
 func (r *recordingTaskAPI) ListProjects(context.Context, string) ([]domain.Project, error) {
+	if r.projects != nil {
+		return r.projects, nil
+	}
 	return []domain.Project{{ID: "p1", Name: "Zipto"}}, nil
 }
 
 func (r *recordingTaskAPI) FilterTasks(_ context.Context, _ string, filter domain.TaskFilter) ([]domain.Task, error) {
 	r.lastFilter = filter
-	return r.filterTasks, nil
+	if len(filter.Statuses) == 0 {
+		return r.filterTasks, nil
+	}
+	allowed := make(map[domain.TaskStatus]struct{}, len(filter.Statuses))
+	for _, s := range filter.Statuses {
+		allowed[s] = struct{}{}
+	}
+	out := make([]domain.Task, 0, len(r.filterTasks))
+	for _, task := range r.filterTasks {
+		if _, ok := allowed[task.Status]; ok {
+			out = append(out, task)
+		}
+	}
+	return out, nil
 }
 
 func (r *recordingTaskAPI) GetProjectData(context.Context, string, string) (domain.Project, []domain.Task, error) {
@@ -36,19 +68,22 @@ func (r *recordingTaskAPI) CreateTask(context.Context, string, domain.CreateTask
 	return domain.Task{}, nil
 }
 
-func (r *recordingTaskAPI) UpdateTask(context.Context, string, domain.Task) (domain.Task, error) {
-	return domain.Task{}, nil
+func (r *recordingTaskAPI) UpdateTask(_ context.Context, _ string, task domain.Task) (domain.Task, error) {
+	r.updateCalls = append(r.updateCalls, task)
+	return task, nil
 }
 
 func (r *recordingTaskAPI) CompleteTask(context.Context, string, string, string) error {
 	return nil
 }
 
-func (r *recordingTaskAPI) DeleteTask(context.Context, string, string, string) error {
+func (r *recordingTaskAPI) DeleteTask(_ context.Context, _ string, projectID, taskID string) error {
+	r.deleteCalls = append(r.deleteCalls, deleteCall{ProjectID: projectID, TaskID: taskID})
 	return nil
 }
 
-func (r *recordingTaskAPI) MoveTask(context.Context, string, string, string, string) error {
+func (r *recordingTaskAPI) MoveTask(_ context.Context, _ string, fromProjectID, toProjectID, taskID string) error {
+	r.moveCalls = append(r.moveCalls, moveCall{FromProjectID: fromProjectID, ToProjectID: toProjectID, TaskID: taskID})
 	return nil
 }
 
@@ -156,5 +191,96 @@ func TestTaskAppListFiltersOverdue(t *testing.T) {
 	}
 	if tasks[0].ID != "overdue" {
 		t.Fatalf("tasks[0].ID = %q, want overdue", tasks[0].ID)
+	}
+}
+
+func TestTaskAppRemoveFindsCompleted(t *testing.T) {
+	client := &recordingTaskAPI{
+		filterTasks: []domain.Task{
+			{ID: "t1", Title: "Foo", ProjectID: "p1", Status: domain.StatusCompleted},
+		},
+	}
+	taskApp := TaskApp{Auth: stubTokenSource{}, Client: client}
+
+	if err := taskApp.Remove(context.Background(), "Foo", ""); err != nil {
+		t.Fatalf("Remove() error = %v", err)
+	}
+	if len(client.deleteCalls) != 1 {
+		t.Fatalf("deleteCalls = %d, want 1", len(client.deleteCalls))
+	}
+	if client.deleteCalls[0].TaskID != "t1" {
+		t.Fatalf("deleted task = %s, want t1", client.deleteCalls[0].TaskID)
+	}
+}
+
+func TestTaskAppUpdateFindsCompleted(t *testing.T) {
+	client := &recordingTaskAPI{
+		filterTasks: []domain.Task{
+			{ID: "t1", Title: "Foo", ProjectID: "p1", Status: domain.StatusCompleted},
+		},
+	}
+	taskApp := TaskApp{Auth: stubTokenSource{}, Client: client}
+
+	_, err := taskApp.Update(context.Background(), domain.UpdateTaskInput{
+		Reference: "Foo",
+		Title:     "Bar",
+	})
+	if err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if len(client.updateCalls) != 1 {
+		t.Fatalf("updateCalls = %d, want 1", len(client.updateCalls))
+	}
+	if client.updateCalls[0].Title != "Bar" {
+		t.Fatalf("updated title = %s, want Bar", client.updateCalls[0].Title)
+	}
+}
+
+func TestTaskAppMoveFindsCompleted(t *testing.T) {
+	client := &recordingTaskAPI{
+		projects: []domain.Project{
+			{ID: "p1", Name: "Src"},
+			{ID: "p2", Name: "Dst"},
+		},
+		filterTasks: []domain.Task{
+			{ID: "t1", Title: "Foo", ProjectID: "p1", Status: domain.StatusCompleted},
+		},
+	}
+	taskApp := TaskApp{Auth: stubTokenSource{}, Client: client}
+
+	if err := taskApp.Move(context.Background(), domain.MoveTaskInput{
+		Reference:      "Foo",
+		FromProjectRef: "Src",
+		ToProjectRef:   "Dst",
+	}); err != nil {
+		t.Fatalf("Move() error = %v", err)
+	}
+	if len(client.moveCalls) != 1 {
+		t.Fatalf("moveCalls = %d, want 1", len(client.moveCalls))
+	}
+	if client.moveCalls[0].TaskID != "t1" {
+		t.Fatalf("moved task = %s, want t1", client.moveCalls[0].TaskID)
+	}
+}
+
+func TestTaskAppReopenSetsStatusOpen(t *testing.T) {
+	client := &recordingTaskAPI{
+		filterTasks: []domain.Task{
+			{ID: "t1", Title: "Foo", ProjectID: "p1", Status: domain.StatusCompleted},
+		},
+	}
+	taskApp := TaskApp{Auth: stubTokenSource{}, Client: client}
+
+	if err := taskApp.Reopen(context.Background(), "Foo", ""); err != nil {
+		t.Fatalf("Reopen() error = %v", err)
+	}
+	if len(client.updateCalls) != 1 {
+		t.Fatalf("updateCalls = %d, want 1", len(client.updateCalls))
+	}
+	if client.updateCalls[0].Status != domain.StatusOpen {
+		t.Fatalf("status = %v, want open", client.updateCalls[0].Status)
+	}
+	if client.updateCalls[0].ID != "t1" {
+		t.Fatalf("updated task = %s, want t1", client.updateCalls[0].ID)
 	}
 }
