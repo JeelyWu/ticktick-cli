@@ -45,20 +45,20 @@ func (s TaskStatus) String() string {
 }
 
 type Task struct {
-	ID            string
-	ProjectID     string
-	Title         string
-	Content       string
-	Description   string
-	StartDate     *time.Time
-	DueDate       *time.Time
-	TimeZone      string
-	IsAllDay      bool
-	Priority      Priority
-	Status        TaskStatus
-	Tags          []string
-	Kind          string
-	CompletedTime *time.Time
+	ID            string     `json:"id"`
+	ProjectID     string     `json:"projectId"`
+	Title         string     `json:"title"`
+	Content       string     `json:"content"`
+	Description   string     `json:"description"`
+	StartDate     *time.Time `json:"startDate"`
+	DueDate       *time.Time `json:"dueDate"`
+	TimeZone      string     `json:"timeZone"`
+	IsAllDay      bool       `json:"isAllDay"`
+	Priority      Priority   `json:"priority"`
+	Status        TaskStatus `json:"status"`
+	Tags          []string   `json:"tags"`
+	Kind          string     `json:"kind"`
+	CompletedTime *time.Time `json:"completedTime"`
 }
 
 type CreateTaskInput struct {
