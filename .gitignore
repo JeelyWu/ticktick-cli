@@ -4,3 +4,5 @@ dist/
 docs/superpowers/
 .worktrees/
 tick
+.claude/
+CLAUDE.md
