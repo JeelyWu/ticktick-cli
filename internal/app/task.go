@@ -115,6 +115,17 @@ func (a TaskApp) Get(ctx context.Context, ref string, projectRef string) (domain
 	return task, names, nil
 }
 
+func (a TaskApp) findTask(ctx context.Context, ref string, projectRef string) (domain.Task, error) {
+	input := ListTasksInput{
+		Project: projectRef,
+	}
+	tasks, _, err := a.List(ctx, input)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	return resolveTaskReference(ref, tasks)
+}
+
 func (a TaskApp) Today(ctx context.Context) ([]domain.Task, map[string]string, error) {
 	token, err := a.Auth.AccessToken(ctx)
 	if err != nil {
@@ -258,7 +269,7 @@ func (a TaskApp) Update(ctx context.Context, in domain.UpdateTaskInput) (domain.
 	if err != nil {
 		return domain.Task{}, err
 	}
-	task, _, err := a.Get(ctx, in.Reference, in.ProjectRef)
+	task, err := a.findTask(ctx, in.Reference, in.ProjectRef)
 	if err != nil {
 		return domain.Task{}, err
 	}
@@ -295,6 +306,20 @@ func (a TaskApp) Update(ctx context.Context, in domain.UpdateTaskInput) (domain.
 	return a.Client.UpdateTask(ctx, token, task)
 }
 
+func (a TaskApp) Reopen(ctx context.Context, ref string, projectRef string) error {
+	token, err := a.Auth.AccessToken(ctx)
+	if err != nil {
+		return err
+	}
+	task, err := a.findTask(ctx, ref, projectRef)
+	if err != nil {
+		return err
+	}
+	task.Status = domain.StatusOpen
+	_, err = a.Client.UpdateTask(ctx, token, task)
+	return err
+}
+
 func (a TaskApp) Done(ctx context.Context, ref string, projectRef string) error {
 	token, err := a.Auth.AccessToken(ctx)
 	if err != nil {
@@ -312,7 +337,7 @@ func (a TaskApp) Remove(ctx context.Context, ref string, projectRef string) erro
 	if err != nil {
 		return err
 	}
-	task, _, err := a.Get(ctx, ref, projectRef)
+	task, err := a.findTask(ctx, ref, projectRef)
 	if err != nil {
 		return err
 	}
@@ -324,7 +349,7 @@ func (a TaskApp) Move(ctx context.Context, in domain.MoveTaskInput) error {
 	if err != nil {
 		return err
 	}
-	task, _, err := a.Get(ctx, in.Reference, in.FromProjectRef)
+	task, err := a.findTask(ctx, in.Reference, in.FromProjectRef)
 	if err != nil {
 		return err
 	}

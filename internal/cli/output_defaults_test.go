@@ -62,11 +62,11 @@ func (f fakeProjectAPI) ListProjects(context.Context, string) ([]domain.Project,
 	return f.projects, nil
 }
 
-func (f fakeProjectAPI) CreateProject(context.Context, string, string, string, string) (domain.Project, error) {
+func (f fakeProjectAPI) CreateProject(context.Context, string, string, string) (domain.Project, error) {
 	return domain.Project{}, nil
 }
 
-func (f fakeProjectAPI) UpdateProject(context.Context, string, string, string, string, string) (domain.Project, error) {
+func (f fakeProjectAPI) UpdateProject(context.Context, string, string, string, string) (domain.Project, error) {
 	return domain.Project{}, nil
 }
 

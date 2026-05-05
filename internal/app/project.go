@@ -13,8 +13,8 @@ type ProjectTokenSource interface {
 
 type ProjectAPI interface {
 	ListProjects(context.Context, string) ([]domain.Project, error)
-	CreateProject(context.Context, string, string, string, string) (domain.Project, error)
-	UpdateProject(context.Context, string, string, string, string, string) (domain.Project, error)
+	CreateProject(context.Context, string, string, string) (domain.Project, error)
+	UpdateProject(context.Context, string, string, string, string) (domain.Project, error)
 	DeleteProject(context.Context, string, string) error
 }
 
@@ -46,7 +46,7 @@ func (a ProjectApp) Get(ctx context.Context, ref string) (domain.Project, error)
 	return ResolveProject(ref, projects)
 }
 
-func (a ProjectApp) Create(ctx context.Context, name, color, kind string) (domain.Project, error) {
+func (a ProjectApp) Create(ctx context.Context, name, kind string) (domain.Project, error) {
 	token, err := a.Auth.AccessToken(ctx)
 	if err != nil {
 		return domain.Project{}, err
@@ -54,10 +54,10 @@ func (a ProjectApp) Create(ctx context.Context, name, color, kind string) (domai
 	if kind == "" {
 		kind = "TASK"
 	}
-	return a.Client.CreateProject(ctx, token, name, color, kind)
+	return a.Client.CreateProject(ctx, token, name, kind)
 }
 
-func (a ProjectApp) Update(ctx context.Context, ref, name, color, kind string) (domain.Project, error) {
+func (a ProjectApp) Update(ctx context.Context, ref, name, kind string) (domain.Project, error) {
 	token, err := a.Auth.AccessToken(ctx)
 	if err != nil {
 		return domain.Project{}, err
@@ -73,13 +73,10 @@ func (a ProjectApp) Update(ctx context.Context, ref, name, color, kind string) (
 	if name == "" {
 		name = project.Name
 	}
-	if color == "" {
-		color = project.Color
-	}
 	if kind == "" {
 		kind = project.Kind
 	}
-	return a.Client.UpdateProject(ctx, token, project.ID, name, color, kind)
+	return a.Client.UpdateProject(ctx, token, project.ID, name, kind)
 }
 
 func (a ProjectApp) Remove(ctx context.Context, ref string) error {

@@ -74,7 +74,6 @@ func NewProjectCommand(resolveProjectApp ProjectResolver, resolveConfigApp Confi
 	}
 	get.Flags().BoolVar(&getJSON, "json", false, "Print JSON")
 
-	var addColor string
 	var addKind string
 	add := &cobra.Command{
 		Use:   "add <name>",
@@ -85,18 +84,16 @@ func NewProjectCommand(resolveProjectApp ProjectResolver, resolveConfigApp Confi
 			if err != nil {
 				return err
 			}
-			project, err := projectApp.Create(cmd.Context(), args[0], addColor, addKind)
+			project, err := projectApp.Create(cmd.Context(), args[0], addKind)
 			if err != nil {
 				return err
 			}
 			return output.PrintJSON(streams.Out, project)
 		},
 	}
-	add.Flags().StringVar(&addColor, "color", "", "Project color such as #F18181")
 	add.Flags().StringVar(&addKind, "kind", "TASK", "Project kind: TASK or NOTE")
 
 	var updateName string
-	var updateColor string
 	var updateKind string
 	update := &cobra.Command{
 		Use:   "update <project>",
@@ -107,7 +104,7 @@ func NewProjectCommand(resolveProjectApp ProjectResolver, resolveConfigApp Confi
 			if err != nil {
 				return err
 			}
-			project, err := projectApp.Update(cmd.Context(), args[0], updateName, updateColor, updateKind)
+			project, err := projectApp.Update(cmd.Context(), args[0], updateName, updateKind)
 			if err != nil {
 				return err
 			}
@@ -115,7 +112,6 @@ func NewProjectCommand(resolveProjectApp ProjectResolver, resolveConfigApp Confi
 		},
 	}
 	update.Flags().StringVar(&updateName, "name", "", "New project name")
-	update.Flags().StringVar(&updateColor, "color", "", "New project color")
 	update.Flags().StringVar(&updateKind, "kind", "", "New project kind: TASK or NOTE")
 
 	var yes bool
