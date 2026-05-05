@@ -110,7 +110,7 @@ func TestTodayCommandUsesConfiguredJSONOutput(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	if !strings.Contains(stdout.String(), "\"ID\": \"t1\"") {
+	if !strings.Contains(stdout.String(), "\"id\": \"t1\"") {
 		t.Fatalf("stdout = %q, want JSON output", stdout.String())
 	}
 	if strings.HasPrefix(stdout.String(), "ID") {
@@ -144,7 +144,7 @@ func TestTaskListCommandFlagOverridesConfiguredJSONOutput(t *testing.T) {
 	if !strings.HasPrefix(stdout.String(), "ID") {
 		t.Fatalf("stdout = %q, want table output", stdout.String())
 	}
-	if strings.Contains(stdout.String(), "\"ID\": \"t1\"") {
+	if strings.Contains(stdout.String(), "\"id\": \"t1\"") {
 		t.Fatalf("stdout = %q, want flag to override configured JSON", stdout.String())
 	}
 	if stderr.Len() != 0 {
@@ -172,7 +172,7 @@ func TestTaskGetCommandUsesConfiguredJSONOutput(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	if !strings.Contains(stdout.String(), "\"ID\": \"t1\"") {
+	if !strings.Contains(stdout.String(), "\"id\": \"t1\"") {
 		t.Fatalf("stdout = %q, want JSON output", stdout.String())
 	}
 	if strings.HasPrefix(stdout.String(), "ID") {
@@ -201,7 +201,7 @@ func TestProjectListCommandUsesConfiguredJSONOutput(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	if !strings.Contains(stdout.String(), "\"ID\": \"p1\"") {
+	if !strings.Contains(stdout.String(), "\"id\": \"p1\"") {
 		t.Fatalf("stdout = %q, want JSON output", stdout.String())
 	}
 	if strings.HasPrefix(stdout.String(), "ID") {
@@ -230,7 +230,7 @@ func TestProjectGetCommandUsesConfiguredJSONOutput(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	if !strings.Contains(stdout.String(), "\"ID\": \"p1\"") {
+	if !strings.Contains(stdout.String(), "\"id\": \"p1\"") {
 		t.Fatalf("stdout = %q, want JSON output", stdout.String())
 	}
 	if strings.HasPrefix(stdout.String(), "ID") {
