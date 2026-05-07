@@ -12,6 +12,7 @@ type AuthServiceResolver func() (app.AuthService, error)
 type RegionResolver func() (string, error)
 type ProjectResolver func() (*app.ProjectApp, error)
 type TaskResolver func() (*app.TaskApp, error)
+type HabitResolver func() (*app.HabitApp, error)
 
 type RootOptions struct {
 	Version             string
@@ -22,6 +23,7 @@ type RootOptions struct {
 	ProjectResolver     ProjectResolver
 	TaskResolver        TaskResolver
 	FocusResolver       FocusResolver
+	HabitResolver       HabitResolver
 	QuickResolver       QuickResolver
 	ConfigResolver      ConfigResolver
 }
@@ -55,6 +57,9 @@ func NewRootCommand(opts RootOptions) *cobra.Command {
 	}
 	if opts.FocusResolver != nil {
 		cmd.AddCommand(NewFocusCommand(opts.FocusResolver, opts.ConfigResolver, opts.Streams))
+	}
+	if opts.HabitResolver != nil {
+		cmd.AddCommand(NewHabitCommand(opts.HabitResolver, opts.ConfigResolver, opts.Streams))
 	}
 	if opts.ConfigResolver != nil {
 		cmd.AddCommand(NewConfigCommand(opts.ConfigResolver, opts.Streams))
