@@ -57,7 +57,7 @@ func buildRuntime(streams cli.Streams) (*config.Store, auth.Service, *ticktick.C
 		Exchanger: auth.Exchanger{
 			TokenURL: endpoints.TokenURL,
 		},
-		Store:   auth.KeyringStore{},
+		Store:   auth.FileStore{},
 		Browser: browserOpener{},
 		In:      streams.In,
 		Out:     streams.Out,
@@ -87,7 +87,7 @@ func main() {
 		},
 		AuthServiceResolver: func() (app.AuthService, error) {
 			return auth.Service{
-				Store:   auth.KeyringStore{},
+				Store:   auth.FileStore{},
 				Browser: browserOpener{},
 				In:      streams.In,
 				Out:     streams.Out,

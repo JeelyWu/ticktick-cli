@@ -8,54 +8,8 @@ import (
 	"testing"
 )
 
-type fakeKeyringBackend struct {
-	setErr    error
-	getErr    error
-	deleteErr error
-	values    map[string]string
-}
-
-func (b *fakeKeyringBackend) Set(service, user, value string) error {
-	if b.setErr != nil {
-		return b.setErr
-	}
-	if b.values == nil {
-		b.values = map[string]string{}
-	}
-	b.values[user] = value
-	return nil
-}
-
-func (b *fakeKeyringBackend) Get(service, user string) (string, error) {
-	if b.getErr != nil {
-		return "", b.getErr
-	}
-	if value, ok := b.values[user]; ok {
-		return value, nil
-	}
-	return "", errKeyringItemNotFound
-}
-
-func (b *fakeKeyringBackend) Delete(service, user string) error {
-	if b.deleteErr != nil {
-		return b.deleteErr
-	}
-	delete(b.values, user)
-	return nil
-}
-
-func TestKeyringStoreFallsBackToLessSecureFileWhenKeyringUnavailable(t *testing.T) {
-	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
-	backend := &fakeKeyringBackend{
-		setErr: errors.New("secret service not available"),
-		getErr: errors.New("secret service not available"),
-	}
-	store := KeyringStore{
-		Backend: backend,
-		FallbackPath: func() (string, error) {
-			return fallbackPath, nil
-		},
-	}
+func TestFileStoreSaveAndLoadToken(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	token := Token{
 		AccessToken:  "access-1",
@@ -65,47 +19,38 @@ func TestKeyringStoreFallsBackToLessSecureFileWhenKeyringUnavailable(t *testing.
 	if err := store.SaveToken(token); err != nil {
 		t.Fatalf("SaveToken() error = %v", err)
 	}
+
+	loaded, err := store.LoadToken()
+	if err != nil {
+		t.Fatalf("LoadToken() error = %v", err)
+	}
+	if loaded.AccessToken != "access-1" {
+		t.Fatalf("AccessToken = %q, want access-1", loaded.AccessToken)
+	}
+	if loaded.ExpiresAtUnix != 0 {
+		t.Fatalf("ExpiresAtUnix = %d, want 0", loaded.ExpiresAtUnix)
+	}
+}
+
+func TestFileStoreSaveAndLoadClientSecret(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+
 	if err := store.SaveClientSecret("secret-1"); err != nil {
 		t.Fatalf("SaveClientSecret() error = %v", err)
 	}
 
-	loadedToken, err := store.LoadToken()
-	if err != nil {
-		t.Fatalf("LoadToken() error = %v", err)
-	}
-	if loadedToken.AccessToken != "access-1" {
-		t.Fatalf("AccessToken = %q, want access-1", loadedToken.AccessToken)
-	}
-	if loadedToken.ExpiresAtUnix != 0 {
-		t.Fatalf("ExpiresAtUnix = %d, want 0", loadedToken.ExpiresAtUnix)
-	}
-	loadedSecret, err := store.LoadClientSecret()
+	loaded, err := store.LoadClientSecret()
 	if err != nil {
 		t.Fatalf("LoadClientSecret() error = %v", err)
 	}
-	if loadedSecret != "secret-1" {
-		t.Fatalf("client secret = %q, want secret-1", loadedSecret)
-	}
-
-	info, err := os.Stat(fallbackPath)
-	if err != nil {
-		t.Fatalf("Stat() error = %v", err)
-	}
-	if got := info.Mode().Perm(); got != 0o600 {
-		t.Fatalf("permissions = %#o, want 0600", got)
-	}
-	data, err := os.ReadFile(fallbackPath)
-	if err != nil {
-		t.Fatalf("ReadFile() error = %v", err)
-	}
-	if !strings.Contains(string(data), "less-secure-file-fallback") {
-		t.Fatalf("fallback file = %q, want less-secure-file-fallback marker", string(data))
+	if loaded != "secret-1" {
+		t.Fatalf("client secret = %q, want secret-1", loaded)
 	}
 }
 
-func TestKeyringStorePreservesTokenExpiryMetadata(t *testing.T) {
-	backend := &fakeKeyringBackend{}
-	store := KeyringStore{Backend: backend}
+func TestFileStorePreservesTokenExpiryMetadata(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+
 	token := Token{
 		AccessToken:   "access-1",
 		RefreshToken:  "refresh-1",
@@ -113,7 +58,6 @@ func TestKeyringStorePreservesTokenExpiryMetadata(t *testing.T) {
 		CreatedAtUnix: 1_776_351_966,
 		ExpiresAtUnix: 1_776_355_566,
 	}
-
 	if err := store.SaveToken(token); err != nil {
 		t.Fatalf("SaveToken() error = %v", err)
 	}
@@ -132,322 +76,98 @@ func TestKeyringStorePreservesTokenExpiryMetadata(t *testing.T) {
 	}
 }
 
-func TestKeyringStoreLoadTokenReturnsClearErrorWhenKeyringUnavailableAndFallbackMissing(t *testing.T) {
-	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
-	store := KeyringStore{
-		Backend: &fakeKeyringBackend{
-			getErr: errors.New("dbus-launch: no secret service"),
-		},
-		FallbackPath: func() (string, error) {
-			return fallbackPath, nil
-		},
-	}
+func TestFileStoreLoadTokenReturnsNotAuthenticatedWhenFileMissing(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	_, err := store.LoadToken()
-	if err == nil {
-		t.Fatal("LoadToken() error = nil, want non-nil")
-	}
-	if strings.Contains(err.Error(), "dbus-launch") {
-		t.Fatalf("error = %q, want sanitized message", err)
-	}
-	if !strings.Contains(err.Error(), "less-secure fallback file") {
-		t.Fatalf("error = %q, want fallback guidance", err)
-	}
-	if !strings.Contains(err.Error(), fallbackPath) {
-		t.Fatalf("error = %q, want fallback path", err)
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("LoadToken() error = %v, want ErrNotAuthenticated", err)
 	}
 }
 
-func TestKeyringStoreLoadTokenUsesTempDirFallbackWhenUserConfigDirUnavailable(t *testing.T) {
-	t.Setenv("HOME", "")
-	t.Setenv("XDG_CONFIG_HOME", "")
+func TestFileStoreLoadClientSecretReturnsNotAuthenticatedWhenFileMissing(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
-	store := KeyringStore{
-		Backend: &fakeKeyringBackend{
-			getErr: errors.New("dbus-launch: no secret service"),
-		},
-	}
-
-	_, err := store.LoadToken()
-	if err == nil {
-		t.Fatal("LoadToken() error = nil, want non-nil")
-	}
-	if strings.Contains(err.Error(), "could not be resolved") {
-		t.Fatalf("error = %q, want temp-dir fallback guidance instead", err)
-	}
-	if !strings.Contains(err.Error(), "less-secure fallback file") {
-		t.Fatalf("error = %q, want fallback guidance", err)
-	}
-	if !strings.Contains(err.Error(), os.TempDir()) {
-		t.Fatalf("error = %q, want temp-dir path", err)
-	}
-	if !strings.Contains(err.Error(), "auth-fallback") {
-		t.Fatalf("error = %q, want auth-fallback path", err)
+	_, err := store.LoadClientSecret()
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("LoadClientSecret() error = %v, want ErrNotAuthenticated", err)
 	}
 }
 
-func TestKeyringStoreDeleteTokenSucceedsWhenUsingTempDirFallback(t *testing.T) {
-	t.Setenv("HOME", "")
-	t.Setenv("XDG_CONFIG_HOME", "")
+func TestFileStoreDeleteToken(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
-	store := KeyringStore{
-		Backend: &fakeKeyringBackend{
-			deleteErr: errors.New("dbus-launch: no secret service"),
-		},
-	}
-
-	if err := store.DeleteToken(); err != nil {
-		t.Fatalf("DeleteToken() error = %v, want nil", err)
-	}
-}
-
-func TestKeyringStoreDeleteTokenSucceedsWhenFallbackParentMissing(t *testing.T) {
-	fallbackPath := filepath.Join(t.TempDir(), "missing", "tick", "auth-fallback", "auth-fallback.json")
-	store := KeyringStore{
-		Backend: &fakeKeyringBackend{
-			deleteErr: errors.New("dbus-launch: no secret service"),
-		},
-		FallbackPath: func() (string, error) {
-			return fallbackPath, nil
-		},
-	}
-
-	if err := store.DeleteToken(); err != nil {
-		t.Fatalf("DeleteToken() error = %v, want nil", err)
-	}
-}
-
-func TestKeyringStoreUsesFallbackWhenKeyringItemIsNotFound(t *testing.T) {
-	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
-	store := KeyringStore{
-		Backend: &fakeKeyringBackend{},
-		FallbackPath: func() (string, error) {
-			return fallbackPath, nil
-		},
-	}
-
-	if err := writeFallbackFile(fallbackPath, fallbackCredentials{
-		Storage: fallbackStorageLabel,
-		Token: &Token{
-			AccessToken: "access-from-fallback",
-		},
-		ClientSecret: "secret-from-fallback",
-	}); err != nil {
-		t.Fatalf("writeFallbackFile() error = %v", err)
-	}
-
-	token, err := store.LoadToken()
-	if err != nil {
-		t.Fatalf("LoadToken() error = %v", err)
-	}
-	if token.AccessToken != "access-from-fallback" {
-		t.Fatalf("AccessToken = %q, want access-from-fallback", token.AccessToken)
-	}
-
-	secret, err := store.LoadClientSecret()
-	if err != nil {
-		t.Fatalf("LoadClientSecret() error = %v", err)
-	}
-	if secret != "secret-from-fallback" {
-		t.Fatalf("client secret = %q, want secret-from-fallback", secret)
-	}
-}
-
-func TestKeyringStoreDeleteRemovesFallbackWhenKeyringItemIsNotFound(t *testing.T) {
-	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
-	store := KeyringStore{
-		Backend: &fakeKeyringBackend{
-			deleteErr: errKeyringItemNotFound,
-		},
-		FallbackPath: func() (string, error) {
-			return fallbackPath, nil
-		},
-	}
-
-	if err := writeFallbackFile(fallbackPath, fallbackCredentials{
-		Storage: fallbackStorageLabel,
-		Token: &Token{
-			AccessToken: "access-from-fallback",
-		},
-		ClientSecret: "secret-from-fallback",
-	}); err != nil {
-		t.Fatalf("writeFallbackFile() error = %v", err)
-	}
-
-	if err := store.DeleteToken(); err != nil {
-		t.Fatalf("DeleteToken() error = %v", err)
-	}
-	if err := store.DeleteClientSecret(); err != nil {
-		t.Fatalf("DeleteClientSecret() error = %v", err)
-	}
-	if _, err := os.Stat(fallbackPath); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("Stat() error = %v, want not exist", err)
-	}
-}
-
-func TestKeyringStoreSuccessfulKeyringWritesClearFallbackFile(t *testing.T) {
-	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
-	backend := &fakeKeyringBackend{}
-	store := KeyringStore{
-		Backend: backend,
-		FallbackPath: func() (string, error) {
-			return fallbackPath, nil
-		},
-	}
-
-	if err := writeFallbackFile(fallbackPath, fallbackCredentials{
-		Storage: fallbackStorageLabel,
-		Token: &Token{
-			AccessToken: "stale-access",
-		},
-		ClientSecret: "stale-secret",
-	}); err != nil {
-		t.Fatalf("writeFallbackFile() error = %v", err)
-	}
-
-	if err := store.SaveToken(Token{AccessToken: "fresh-access"}); err != nil {
+	if err := store.SaveToken(Token{AccessToken: "access-1"}); err != nil {
 		t.Fatalf("SaveToken() error = %v", err)
 	}
-	if err := store.SaveClientSecret("fresh-secret"); err != nil {
+	if err := store.DeleteToken(); err != nil {
+		t.Fatalf("DeleteToken() error = %v", err)
+	}
+	_, err := store.LoadToken()
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("LoadToken() after delete error = %v, want ErrNotAuthenticated", err)
+	}
+}
+
+func TestFileStoreDeleteClientSecret(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+
+	if err := store.SaveClientSecret("secret-1"); err != nil {
 		t.Fatalf("SaveClientSecret() error = %v", err)
 	}
-	if _, err := os.Stat(fallbackPath); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("Stat() error = %v, want not exist", err)
+	if err := store.DeleteClientSecret(); err != nil {
+		t.Fatalf("DeleteClientSecret() error = %v", err)
+	}
+	_, err := store.LoadClientSecret()
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("LoadClientSecret() after delete error = %v, want ErrNotAuthenticated", err)
 	}
 }
 
-func TestKeyringStoreSuccessfulKeyringWritesIgnoreBrokenFallbackCleanup(t *testing.T) {
-	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback", "auth-fallback.json")
-	if err := os.MkdirAll(filepath.Dir(fallbackPath), 0o700); err != nil {
-		t.Fatalf("MkdirAll() error = %v", err)
-	}
-	if err := os.WriteFile(fallbackPath, []byte("{not-json"), 0o600); err != nil {
-		t.Fatalf("WriteFile() error = %v", err)
-	}
+func TestFileStoreDeleteRemovesFileWhenEmpty(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tick", "auth.json")
+	store := FileStore{Path: path}
 
-	backend := &fakeKeyringBackend{}
-	store := KeyringStore{
-		Backend: backend,
-		FallbackPath: func() (string, error) {
-			return fallbackPath, nil
-		},
+	if err := store.SaveToken(Token{AccessToken: "access-1"}); err != nil {
+		t.Fatalf("SaveToken() error = %v", err)
 	}
-
-	if err := store.SaveToken(Token{AccessToken: "fresh-access"}); err != nil {
-		t.Fatalf("SaveToken() error = %v, want nil", err)
+	if err := store.SaveClientSecret("secret-1"); err != nil {
+		t.Fatalf("SaveClientSecret() error = %v", err)
 	}
-	if err := store.SaveClientSecret("fresh-secret"); err != nil {
-		t.Fatalf("SaveClientSecret() error = %v, want nil", err)
-	}
-	if backend.values[tokenKey] == "" {
-		t.Fatal("saved token missing from keyring backend")
-	}
-	if backend.values[clientSecretKey] != "fresh-secret" {
-		t.Fatalf("client secret = %q, want fresh-secret", backend.values[clientSecretKey])
-	}
-}
-
-func TestKeyringStoreSuccessfulKeyringDeletesClearFallbackFile(t *testing.T) {
-	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
-	backend := &fakeKeyringBackend{}
-	store := KeyringStore{
-		Backend: backend,
-		FallbackPath: func() (string, error) {
-			return fallbackPath, nil
-		},
-	}
-
-	if err := writeFallbackFile(fallbackPath, fallbackCredentials{
-		Storage: fallbackStorageLabel,
-		Token: &Token{
-			AccessToken: "stale-access",
-		},
-		ClientSecret: "stale-secret",
-	}); err != nil {
-		t.Fatalf("writeFallbackFile() error = %v", err)
-	}
-
 	if err := store.DeleteToken(); err != nil {
 		t.Fatalf("DeleteToken() error = %v", err)
 	}
 	if err := store.DeleteClientSecret(); err != nil {
 		t.Fatalf("DeleteClientSecret() error = %v", err)
 	}
-	if _, err := os.Stat(fallbackPath); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("Stat() error = %v, want not exist", err)
 	}
 }
 
-func TestKeyringStoreSuccessfulKeyringDeletesIgnoreBrokenFallbackCleanup(t *testing.T) {
-	fallbackDir := filepath.Join(t.TempDir(), "tick", "auth-fallback")
-	if err := os.MkdirAll(fallbackDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll() error = %v", err)
+func TestFileStoreFileHasRestrictedPermissions(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+
+	if err := store.SaveToken(Token{AccessToken: "access-1"}); err != nil {
+		t.Fatalf("SaveToken() error = %v", err)
 	}
 
-	backend := &fakeKeyringBackend{
-		values: map[string]string{
-			tokenKey:        `{"access_token":"fresh-access"}`,
-			clientSecretKey: "fresh-secret",
-		},
+	info, err := os.Stat(store.Path)
+	if err != nil {
+		t.Fatalf("Stat() error = %v", err)
 	}
-	store := KeyringStore{
-		Backend: backend,
-		FallbackPath: func() (string, error) {
-			return filepath.Join(fallbackDir, "auth-fallback.json"), nil
-		},
-	}
-
-	if err := store.DeleteToken(); err != nil {
-		t.Fatalf("DeleteToken() error = %v, want nil", err)
-	}
-	if err := store.DeleteClientSecret(); err != nil {
-		t.Fatalf("DeleteClientSecret() error = %v, want nil", err)
-	}
-	if _, ok := backend.values[tokenKey]; ok {
-		t.Fatal("token still present in keyring backend")
-	}
-	if _, ok := backend.values[clientSecretKey]; ok {
-		t.Fatal("client secret still present in keyring backend")
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Fatalf("permissions = %#o, want 0600", got)
 	}
 }
 
-func TestKeyringStoreDoesNotFallbackOnNonUnavailableKeyringError(t *testing.T) {
-	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
-	store := KeyringStore{
-		Backend: &fakeKeyringBackend{
-			setErr: errors.New("permission denied"),
-		},
-		FallbackPath: func() (string, error) {
-			return fallbackPath, nil
-		},
-	}
-
-	err := store.SaveToken(Token{AccessToken: "access-1"})
-	if err == nil {
-		t.Fatal("SaveToken() error = nil, want non-nil")
-	}
-	if !strings.Contains(err.Error(), "permission denied") {
-		t.Fatalf("error = %q, want permission denied", err)
-	}
-	if _, err := os.Stat(fallbackPath); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("Stat() error = %v, want not exist", err)
-	}
-}
-
-func TestKeyringStoreRejectsInsecureFallbackDirectory(t *testing.T) {
-	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback.json")
-	if err := os.MkdirAll(filepath.Dir(fallbackPath), 0o755); err != nil {
+func TestFileStoreRejectsInsecureDirectory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tick", "auth.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
 
-	store := KeyringStore{
-		Backend: &fakeKeyringBackend{
-			setErr: errors.New("secret service not available"),
-		},
-		FallbackPath: func() (string, error) {
-			return fallbackPath, nil
-		},
-	}
+	store := FileStore{Path: path}
 
 	err := store.SaveToken(Token{AccessToken: "access-1"})
 	if err == nil {
@@ -456,26 +176,61 @@ func TestKeyringStoreRejectsInsecureFallbackDirectory(t *testing.T) {
 	if !strings.Contains(err.Error(), "0700") {
 		t.Fatalf("error = %q, want 0700 guidance", err)
 	}
-	if _, err := os.Stat(fallbackPath); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("Stat() error = %v, want not exist", err)
 	}
 }
 
-func TestKeyringStoreFallsBackOnCredentialManagerUnavailableError(t *testing.T) {
-	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback", "auth-fallback.json")
-	store := KeyringStore{
-		Backend: &fakeKeyringBackend{
-			setErr: errors.New("credential manager not available"),
-		},
-		FallbackPath: func() (string, error) {
-			return fallbackPath, nil
-		},
-	}
+func TestFileStoreTokenAndSecretCoexist(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	if err := store.SaveToken(Token{AccessToken: "access-1"}); err != nil {
 		t.Fatalf("SaveToken() error = %v", err)
 	}
-	if _, err := os.Stat(fallbackPath); err != nil {
-		t.Fatalf("Stat() error = %v, want fallback file", err)
+	if err := store.SaveClientSecret("secret-1"); err != nil {
+		t.Fatalf("SaveClientSecret() error = %v", err)
+	}
+
+	token, err := store.LoadToken()
+	if err != nil {
+		t.Fatalf("LoadToken() error = %v", err)
+	}
+	if token.AccessToken != "access-1" {
+		t.Fatalf("AccessToken = %q, want access-1", token.AccessToken)
+	}
+
+	secret, err := store.LoadClientSecret()
+	if err != nil {
+		t.Fatalf("LoadClientSecret() error = %v", err)
+	}
+	if secret != "secret-1" {
+		t.Fatalf("client secret = %q, want secret-1", secret)
+	}
+}
+
+func TestFileStoreDeleteTokenPreservesSecret(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+
+	if err := store.SaveToken(Token{AccessToken: "access-1"}); err != nil {
+		t.Fatalf("SaveToken() error = %v", err)
+	}
+	if err := store.SaveClientSecret("secret-1"); err != nil {
+		t.Fatalf("SaveClientSecret() error = %v", err)
+	}
+	if err := store.DeleteToken(); err != nil {
+		t.Fatalf("DeleteToken() error = %v", err)
+	}
+
+	_, err := store.LoadToken()
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("LoadToken() error = %v, want ErrNotAuthenticated", err)
+	}
+
+	secret, err := store.LoadClientSecret()
+	if err != nil {
+		t.Fatalf("LoadClientSecret() error = %v", err)
+	}
+	if secret != "secret-1" {
+		t.Fatalf("client secret = %q, want secret-1", secret)
 	}
 }
