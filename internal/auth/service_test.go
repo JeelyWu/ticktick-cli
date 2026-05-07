@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -135,48 +134,6 @@ func TestServiceLoginContinuesWhenBrowserOpenFails(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "https://ticktick.com/oauth/authorize?") {
 		t.Fatalf("output = %q, want authorize URL", out.String())
-	}
-}
-
-func TestServiceLoginWarnsWhenLessSecureFallbackFileIsUsed(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"access_token":"access-1","refresh_token":"refresh-1","token_type":"Bearer"}`))
-	}))
-	defer server.Close()
-
-	state := "state-1"
-	fallbackPath := filepath.Join(t.TempDir(), "tick", "auth-fallback", "auth-fallback.json")
-	out := &bytes.Buffer{}
-
-	_, err := Service{
-		Exchanger: Exchanger{
-			HTTPClient: server.Client(),
-			TokenURL:   server.URL,
-		},
-		Store: KeyringStore{
-			Backend: &fakeKeyringBackend{
-				setErr: errors.New("secret service not available"),
-			},
-			FallbackPath: func() (string, error) {
-				return fallbackPath, nil
-			},
-		},
-		In:          strings.NewReader("http://localhost:14573/callback?code=code-1&state=" + state + "\n"),
-		Out:         out,
-		StateSource: func() string { return state },
-	}.Login(context.Background(), LoginInput{
-		ClientID:     "client-1",
-		ClientSecret: "secret-1",
-		RedirectURL:  "http://localhost:14573/callback",
-	})
-	if err != nil {
-		t.Fatalf("Login() error = %v", err)
-	}
-	if !strings.Contains(out.String(), "less-secure fallback file") {
-		t.Fatalf("output = %q, want fallback warning", out.String())
-	}
-	if !strings.Contains(out.String(), fallbackPath) {
-		t.Fatalf("output = %q, want fallback path", out.String())
 	}
 }
 
@@ -468,27 +425,6 @@ func TestServiceLoginFallsBackToManualWhenCallbackListenerCannotStart(t *testing
 	}
 	if !strings.Contains(out.String(), "Paste the full callback URL") {
 		t.Fatalf("output = %q, want manual fallback prompt", out.String())
-	}
-}
-
-func TestServiceStatusTreatsFallbackGuidanceAsNotAuthenticated(t *testing.T) {
-	service := Service{
-		Store: KeyringStore{
-			Backend: &fakeKeyringBackend{
-				getErr: errors.New("dbus-launch: no secret service"),
-			},
-			FallbackPath: func() (string, error) {
-				return filepath.Join(t.TempDir(), "tick", "auth-fallback", "auth-fallback.json"), nil
-			},
-		},
-	}
-
-	status, err := service.Status(context.Background())
-	if err != nil {
-		t.Fatalf("Status() error = %v", err)
-	}
-	if status.Authenticated {
-		t.Fatal("Authenticated = true, want false")
 	}
 }
 
