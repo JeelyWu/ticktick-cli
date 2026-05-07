@@ -2,6 +2,7 @@ package ticktick
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sort"
 
@@ -12,33 +13,31 @@ type habitDTO struct {
 	ID            string   `json:"id"`
 	Name          string   `json:"name"`
 	Status        int      `json:"status"`
-	Goal          int      `json:"goal"`
+	Goal          float64  `json:"goal"`
 	Color         string   `json:"color"`
 	SectionID     string   `json:"sectionId"`
-	Icon          string   `json:"icon"`
+	IconRes       string   `json:"iconRes"`
 	Reminders     []string `json:"reminders"`
 	RepeatRule    string   `json:"repeatRule"`
-	TargetDays    []int    `json:"targetDays"`
+	TargetDays    int      `json:"targetDays"`
 	Unit          string   `json:"unit"`
-	Step          int      `json:"step"`
+	Step          float64  `json:"step"`
 	TotalCheckins int      `json:"totalCheckins"`
 	CurrentStreak int      `json:"currentStreak"`
 	CreatedTime   string   `json:"createdTime"`
 	ArchivedTime  string   `json:"archivedTime"`
 }
 
-type habitCheckinDTO struct {
-	ID           string `json:"id"`
-	HabitID      string `json:"habitId"`
-	CheckinStamp int    `json:"checkinStamp"`
-	CheckinTime  string `json:"checkinTime"`
-	Status       int    `json:"status"`
-	Value        int    `json:"value"`
-	Goal         int    `json:"goal"`
+type checkinEntryDTO struct {
+	Stamp int     `json:"stamp"`
+	Value float64 `json:"value"`
+	Goal  float64 `json:"goal"`
 }
 
-type habitsResponse struct {
-	Habits []habitDTO `json:"habits"`
+type habitCheckinGroupDTO struct {
+	HabitID  string            `json:"habitId"`
+	Year     int               `json:"year"`
+	Checkins []checkinEntryDTO `json:"checkins"`
 }
 
 func mapHabits(dto []habitDTO) []domain.Habit {
@@ -51,7 +50,7 @@ func mapHabits(dto []habitDTO) []domain.Habit {
 			Goal:          item.Goal,
 			Color:         item.Color,
 			SectionID:     item.SectionID,
-			Icon:          item.Icon,
+			IconRes:       item.IconRes,
 			Reminders:     item.Reminders,
 			RepeatRule:    item.RepeatRule,
 			TargetDays:    item.TargetDays,
@@ -69,36 +68,34 @@ func mapHabits(dto []habitDTO) []domain.Habit {
 	return out
 }
 
-func mapCheckins(dto []habitCheckinDTO) []domain.HabitCheckin {
-	out := make([]domain.HabitCheckin, 0, len(dto))
-	for _, item := range dto {
+func mapCheckins(group habitCheckinGroupDTO) []domain.HabitCheckin {
+	out := make([]domain.HabitCheckin, 0, len(group.Checkins))
+	for _, item := range group.Checkins {
 		out = append(out, domain.HabitCheckin{
-			ID:           item.ID,
-			HabitID:      item.HabitID,
-			CheckinStamp: item.CheckinStamp,
-			CheckinTime:  parseTickTime(item.CheckinTime),
-			Status:       item.Status,
-			Value:        item.Value,
-			Goal:         item.Goal,
+			HabitID: group.HabitID,
+			Year:    group.Year,
+			Stamp:   item.Stamp,
+			Value:   item.Value,
+			Goal:    item.Goal,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
-		return out[i].CheckinStamp > out[j].CheckinStamp
+		return out[i].Stamp > out[j].Stamp
 	})
 	return out
 }
 
 func (c *Client) ListHabits(ctx context.Context, token string) ([]domain.Habit, error) {
-	var resp habitsResponse
-	if err := c.DoJSON(ctx, http.MethodGet, "/open/v1/habits", token, nil, &resp); err != nil {
+	var resp []habitDTO
+	if err := c.DoJSON(ctx, http.MethodGet, "/open/v1/habit", token, nil, &resp); err != nil {
 		return nil, err
 	}
-	return mapHabits(resp.Habits), nil
+	return mapHabits(resp), nil
 }
 
 func (c *Client) GetHabit(ctx context.Context, token, habitID string) (domain.Habit, error) {
 	var dto habitDTO
-	if err := c.DoJSON(ctx, http.MethodGet, "/open/v1/habits/"+habitID, token, nil, &dto); err != nil {
+	if err := c.DoJSON(ctx, http.MethodGet, "/open/v1/habit/"+habitID, token, nil, &dto); err != nil {
 		return domain.Habit{}, err
 	}
 	habits := mapHabits([]habitDTO{dto})
@@ -113,13 +110,13 @@ func (c *Client) CreateHabit(ctx context.Context, token string, in domain.Create
 	if in.Color != "" {
 		body["color"] = in.Color
 	}
-	if in.Icon != "" {
-		body["icon"] = in.Icon
+	if in.IconRes != "" {
+		body["iconRes"] = in.IconRes
 	}
 	if in.RepeatRule != "" {
 		body["repeatRule"] = in.RepeatRule
 	}
-	if len(in.TargetDays) > 0 {
+	if in.TargetDays > 0 {
 		body["targetDays"] = in.TargetDays
 	}
 	if in.Unit != "" {
@@ -129,7 +126,7 @@ func (c *Client) CreateHabit(ctx context.Context, token string, in domain.Create
 		body["step"] = in.Step
 	}
 	var dto habitDTO
-	if err := c.DoJSON(ctx, http.MethodPost, "/open/v1/habits", token, body, &dto); err != nil {
+	if err := c.DoJSON(ctx, http.MethodPost, "/open/v1/habit", token, body, &dto); err != nil {
 		return domain.Habit{}, err
 	}
 	return mapHabits([]habitDTO{dto})[0], nil
@@ -144,13 +141,13 @@ func (c *Client) UpdateHabit(ctx context.Context, token, habitID string, in doma
 	if in.Color != "" {
 		body["color"] = in.Color
 	}
-	if in.Icon != "" {
-		body["icon"] = in.Icon
+	if in.IconRes != "" {
+		body["iconRes"] = in.IconRes
 	}
 	if in.RepeatRule != "" {
 		body["repeatRule"] = in.RepeatRule
 	}
-	if len(in.TargetDays) > 0 {
+	if in.TargetDays > 0 {
 		body["targetDays"] = in.TargetDays
 	}
 	if in.Unit != "" {
@@ -159,28 +156,47 @@ func (c *Client) UpdateHabit(ctx context.Context, token, habitID string, in doma
 	if in.Step > 0 {
 		body["step"] = in.Step
 	}
+	if in.StatusSet {
+		body["status"] = in.Status
+	}
 	var dto habitDTO
-	if err := c.DoJSON(ctx, http.MethodPost, "/open/v1/habits/"+habitID, token, body, &dto); err != nil {
+	if err := c.DoJSON(ctx, http.MethodPost, "/open/v1/habit/"+habitID, token, body, &dto); err != nil {
 		return domain.Habit{}, err
 	}
 	return mapHabits([]habitDTO{dto})[0], nil
 }
 
-func (c *Client) DeleteHabit(ctx context.Context, token, habitID string) error {
-	return c.DoJSON(ctx, http.MethodDelete, "/open/v1/habits/"+habitID, token, nil, nil)
-}
-
-func (c *Client) CheckinHabit(ctx context.Context, token, habitID string, value int) error {
+func (c *Client) CheckinHabit(ctx context.Context, token, habitID string, stamp int, value, goal float64) error {
 	body := map[string]any{
+		"stamp": stamp,
 		"value": value,
 	}
-	return c.DoJSON(ctx, http.MethodPost, "/open/v1/habits/"+habitID+"/checkins", token, body, nil)
+	if goal > 0 {
+		body["goal"] = goal
+	}
+	return c.DoJSON(ctx, http.MethodPost, "/open/v1/habit/"+habitID+"/checkin", token, body, nil)
 }
 
-func (c *Client) ListCheckins(ctx context.Context, token, habitID string) ([]domain.HabitCheckin, error) {
-	var dto []habitCheckinDTO
-	if err := c.DoJSON(ctx, http.MethodGet, "/open/v1/habits/"+habitID+"/checkins", token, nil, &dto); err != nil {
+func (c *Client) ListCheckins(ctx context.Context, token string, habitIDs []string, from, to int) ([]domain.HabitCheckin, error) {
+	ids := ""
+	for i, id := range habitIDs {
+		if i > 0 {
+			ids += ","
+		}
+		ids += id
+	}
+	path := fmt.Sprintf("/open/v1/habit/checkins?habitIds=%s&from=%d&to=%d", ids, from, to)
+	var resp []habitCheckinGroupDTO
+	if err := c.DoJSON(ctx, http.MethodGet, path, token, nil, &resp); err != nil {
 		return nil, err
 	}
-	return mapCheckins(dto), nil
+
+	out := make([]domain.HabitCheckin, 0)
+	for _, group := range resp {
+		out = append(out, mapCheckins(group)...)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Stamp > out[j].Stamp
+	})
+	return out, nil
 }

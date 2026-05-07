@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"sort"
+	"time"
 
 	"github.com/jeely/ticktick-cli/internal/domain"
 )
@@ -12,13 +13,12 @@ type HabitAPI interface {
 	GetHabit(context.Context, string, string) (domain.Habit, error)
 	CreateHabit(context.Context, string, domain.CreateHabitPayload) (domain.Habit, error)
 	UpdateHabit(context.Context, string, string, domain.CreateHabitPayload) (domain.Habit, error)
-	DeleteHabit(context.Context, string, string) error
-	CheckinHabit(context.Context, string, string, int) error
-	ListCheckins(context.Context, string, string) ([]domain.HabitCheckin, error)
+	CheckinHabit(context.Context, string, string, int, float64, float64) error
+	ListCheckins(context.Context, string, []string, int, int) ([]domain.HabitCheckin, error)
 }
 
 type HabitApp struct {
-	Auth   ProjectTokenSource
+	Auth ProjectTokenSource
 	Client HabitAPI
 }
 
@@ -38,11 +38,30 @@ func (a HabitApp) List(ctx context.Context) ([]domain.Habit, error) {
 }
 
 func (a HabitApp) Get(ctx context.Context, ref string) (domain.Habit, error) {
+	if looksLikeID(ref) {
+		token, err := a.Auth.AccessToken(ctx)
+		if err != nil {
+			return domain.Habit{}, err
+		}
+		return a.Client.GetHabit(ctx, token, ref)
+	}
 	habits, err := a.List(ctx)
 	if err != nil {
 		return domain.Habit{}, err
 	}
 	return ResolveHabit(ref, habits)
+}
+
+func looksLikeID(ref string) bool {
+	if len(ref) != 24 {
+		return false
+	}
+	for _, r := range ref {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') && (r < 'A' || r > 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 func (a HabitApp) Add(ctx context.Context, in domain.CreateHabitInput) (domain.Habit, error) {
@@ -54,7 +73,7 @@ func (a HabitApp) Add(ctx context.Context, in domain.CreateHabitInput) (domain.H
 		Name:       in.Name,
 		Goal:       in.Goal,
 		Color:      in.Color,
-		Icon:       in.Icon,
+		IconRes:    in.IconRes,
 		RepeatRule: in.RepeatRule,
 		TargetDays: in.TargetDays,
 		Unit:       in.Unit,
@@ -82,7 +101,7 @@ func (a HabitApp) Update(ctx context.Context, in domain.UpdateHabitInput) (domai
 		Name:       habit.Name,
 		Goal:       habit.Goal,
 		Color:      habit.Color,
-		Icon:       habit.Icon,
+		IconRes:    habit.IconRes,
 		RepeatRule: habit.RepeatRule,
 		TargetDays: habit.TargetDays,
 		Unit:       habit.Unit,
@@ -97,13 +116,13 @@ func (a HabitApp) Update(ctx context.Context, in domain.UpdateHabitInput) (domai
 	if in.Color != "" {
 		payload.Color = in.Color
 	}
-	if in.Icon != "" {
-		payload.Icon = in.Icon
+	if in.IconRes != "" {
+		payload.IconRes = in.IconRes
 	}
 	if in.RepeatRule != "" {
 		payload.RepeatRule = in.RepeatRule
 	}
-	if len(in.TargetDays) > 0 {
+	if in.TargetDays > 0 {
 		payload.TargetDays = in.TargetDays
 	}
 	if in.Unit != "" {
@@ -112,34 +131,31 @@ func (a HabitApp) Update(ctx context.Context, in domain.UpdateHabitInput) (domai
 	if in.Step > 0 {
 		payload.Step = in.Step
 	}
+	if in.Status != nil {
+		payload.Status = int(*in.Status)
+		payload.StatusSet = true
+	}
 	return a.Client.UpdateHabit(ctx, token, habit.ID, payload)
 }
 
 func (a HabitApp) Archive(ctx context.Context, ref string) (domain.Habit, error) {
-	token, err := a.Auth.AccessToken(ctx)
-	if err != nil {
-		return domain.Habit{}, err
-	}
 	habit, err := a.Get(ctx, ref)
 	if err != nil {
 		return domain.Habit{}, err
 	}
-	return a.Client.UpdateHabit(ctx, token, habit.ID, domain.CreateHabitPayload{})
+	var newStatus domain.HabitStatus
+	if habit.Status == domain.HabitStatusActive {
+		newStatus = domain.HabitStatusArchived
+	} else {
+		newStatus = domain.HabitStatusActive
+	}
+	return a.Update(ctx, domain.UpdateHabitInput{
+		Reference: ref,
+		Status:    &newStatus,
+	})
 }
 
-func (a HabitApp) Remove(ctx context.Context, ref string) error {
-	token, err := a.Auth.AccessToken(ctx)
-	if err != nil {
-		return err
-	}
-	habit, err := a.Get(ctx, ref)
-	if err != nil {
-		return err
-	}
-	return a.Client.DeleteHabit(ctx, token, habit.ID)
-}
-
-func (a HabitApp) Checkin(ctx context.Context, ref string, value int) error {
+func (a HabitApp) Checkin(ctx context.Context, ref string, value float64) error {
 	token, err := a.Auth.AccessToken(ctx)
 	if err != nil {
 		return err
@@ -154,7 +170,8 @@ func (a HabitApp) Checkin(ctx context.Context, ref string, value int) error {
 	if value == 0 {
 		value = 1
 	}
-	return a.Client.CheckinHabit(ctx, token, habit.ID, value)
+	stamp := dateStamp(time.Now())
+	return a.Client.CheckinHabit(ctx, token, habit.ID, stamp, value, habit.Goal)
 }
 
 func (a HabitApp) Log(ctx context.Context, ref string) ([]domain.HabitCheckin, error) {
@@ -166,7 +183,14 @@ func (a HabitApp) Log(ctx context.Context, ref string) ([]domain.HabitCheckin, e
 	if err != nil {
 		return nil, err
 	}
-	return a.Client.ListCheckins(ctx, token, habit.ID)
+	now := time.Now()
+	from := dateStamp(now.AddDate(0, 0, -30))
+	to := dateStamp(now.AddDate(0, 0, 1))
+	return a.Client.ListCheckins(ctx, token, []string{habit.ID}, from, to)
+}
+
+func dateStamp(t time.Time) int {
+	return t.Year()*10000 + int(t.Month())*100 + t.Day()
 }
 
 func ResolveHabit(ref string, habits []domain.Habit) (domain.Habit, error) {

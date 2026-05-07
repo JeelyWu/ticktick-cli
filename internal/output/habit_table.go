@@ -13,7 +13,7 @@ func PrintHabitsTable(w io.Writer, habits []domain.Habit) error {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintln(tw, "ID\tNAME\tGOAL\tSTREAK\tSTATUS")
 	for _, habit := range habits {
-		_, _ = fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%s\n",
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%g\t%d\t%s\n",
 			habit.ID, habit.Name, habit.Goal, habit.CurrentStreak, habit.Status.String())
 	}
 	return tw.Flush()
@@ -21,14 +21,10 @@ func PrintHabitsTable(w io.Writer, habits []domain.Habit) error {
 
 func PrintCheckinsTable(w io.Writer, checkins []domain.HabitCheckin) error {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(tw, "DATE\tSTATUS\tVALUE\tGOAL")
+	_, _ = fmt.Fprintln(tw, "DATE\tVALUE\tGOAL")
 	for _, c := range checkins {
-		date := formatCheckinStamp(c.CheckinStamp)
-		status := "unchecked"
-		if c.Status == 2 {
-			status = "completed"
-		}
-		_, _ = fmt.Fprintf(tw, "%s\t%s\t%d\t%d\n", date, status, c.Value, c.Goal)
+		date := formatCheckinStamp(c.Stamp)
+		_, _ = fmt.Fprintf(tw, "%s\t%g\t%g\n", date, c.Value, c.Goal)
 	}
 	return tw.Flush()
 }
