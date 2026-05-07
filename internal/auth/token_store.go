@@ -68,18 +68,18 @@ type TokenStore interface {
 	DeleteClientSecret() error
 }
 
-type KeyringStore struct {
+type FileStore struct {
 	Path string
 }
 
-func (s KeyringStore) SaveToken(token Token) error {
+func (s FileStore) SaveToken(token Token) error {
 	return s.update(func(c *credentials) {
 		copyToken := token
 		c.Token = &copyToken
 	})
 }
 
-func (s KeyringStore) LoadToken() (Token, error) {
+func (s FileStore) LoadToken() (Token, error) {
 	creds, err := s.read()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -93,19 +93,19 @@ func (s KeyringStore) LoadToken() (Token, error) {
 	return *creds.Token, nil
 }
 
-func (s KeyringStore) DeleteToken() error {
+func (s FileStore) DeleteToken() error {
 	return s.update(func(c *credentials) {
 		c.Token = nil
 	})
 }
 
-func (s KeyringStore) SaveClientSecret(secret string) error {
+func (s FileStore) SaveClientSecret(secret string) error {
 	return s.update(func(c *credentials) {
 		c.ClientSecret = secret
 	})
 }
 
-func (s KeyringStore) LoadClientSecret() (string, error) {
+func (s FileStore) LoadClientSecret() (string, error) {
 	creds, err := s.read()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -119,13 +119,13 @@ func (s KeyringStore) LoadClientSecret() (string, error) {
 	return creds.ClientSecret, nil
 }
 
-func (s KeyringStore) DeleteClientSecret() error {
+func (s FileStore) DeleteClientSecret() error {
 	return s.update(func(c *credentials) {
 		c.ClientSecret = ""
 	})
 }
 
-func (s KeyringStore) filePath() string {
+func (s FileStore) filePath() string {
 	if s.Path != "" {
 		return s.Path
 	}
@@ -133,7 +133,7 @@ func (s KeyringStore) filePath() string {
 	return filepath.Join(dir, "tick", authFileName)
 }
 
-func (s KeyringStore) read() (credentials, error) {
+func (s FileStore) read() (credentials, error) {
 	path := s.filePath()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -146,7 +146,7 @@ func (s KeyringStore) read() (credentials, error) {
 	return creds, nil
 }
 
-func (s KeyringStore) update(update func(*credentials)) error {
+func (s FileStore) update(update func(*credentials)) error {
 	path := s.filePath()
 
 	creds := credentials{}

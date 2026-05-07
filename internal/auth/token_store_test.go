@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-func TestKeyringStoreSaveAndLoadToken(t *testing.T) {
-	store := KeyringStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+func TestFileStoreSaveAndLoadToken(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	token := Token{
 		AccessToken:  "access-1",
@@ -32,8 +32,8 @@ func TestKeyringStoreSaveAndLoadToken(t *testing.T) {
 	}
 }
 
-func TestKeyringStoreSaveAndLoadClientSecret(t *testing.T) {
-	store := KeyringStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+func TestFileStoreSaveAndLoadClientSecret(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	if err := store.SaveClientSecret("secret-1"); err != nil {
 		t.Fatalf("SaveClientSecret() error = %v", err)
@@ -48,8 +48,8 @@ func TestKeyringStoreSaveAndLoadClientSecret(t *testing.T) {
 	}
 }
 
-func TestKeyringStorePreservesTokenExpiryMetadata(t *testing.T) {
-	store := KeyringStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+func TestFileStorePreservesTokenExpiryMetadata(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	token := Token{
 		AccessToken:   "access-1",
@@ -76,8 +76,8 @@ func TestKeyringStorePreservesTokenExpiryMetadata(t *testing.T) {
 	}
 }
 
-func TestKeyringStoreLoadTokenReturnsNotAuthenticatedWhenFileMissing(t *testing.T) {
-	store := KeyringStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+func TestFileStoreLoadTokenReturnsNotAuthenticatedWhenFileMissing(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	_, err := store.LoadToken()
 	if !errors.Is(err, ErrNotAuthenticated) {
@@ -85,8 +85,8 @@ func TestKeyringStoreLoadTokenReturnsNotAuthenticatedWhenFileMissing(t *testing.
 	}
 }
 
-func TestKeyringStoreLoadClientSecretReturnsNotAuthenticatedWhenFileMissing(t *testing.T) {
-	store := KeyringStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+func TestFileStoreLoadClientSecretReturnsNotAuthenticatedWhenFileMissing(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	_, err := store.LoadClientSecret()
 	if !errors.Is(err, ErrNotAuthenticated) {
@@ -94,8 +94,8 @@ func TestKeyringStoreLoadClientSecretReturnsNotAuthenticatedWhenFileMissing(t *t
 	}
 }
 
-func TestKeyringStoreDeleteToken(t *testing.T) {
-	store := KeyringStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+func TestFileStoreDeleteToken(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	if err := store.SaveToken(Token{AccessToken: "access-1"}); err != nil {
 		t.Fatalf("SaveToken() error = %v", err)
@@ -109,8 +109,8 @@ func TestKeyringStoreDeleteToken(t *testing.T) {
 	}
 }
 
-func TestKeyringStoreDeleteClientSecret(t *testing.T) {
-	store := KeyringStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+func TestFileStoreDeleteClientSecret(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	if err := store.SaveClientSecret("secret-1"); err != nil {
 		t.Fatalf("SaveClientSecret() error = %v", err)
@@ -124,9 +124,9 @@ func TestKeyringStoreDeleteClientSecret(t *testing.T) {
 	}
 }
 
-func TestKeyringStoreDeleteRemovesFileWhenEmpty(t *testing.T) {
+func TestFileStoreDeleteRemovesFileWhenEmpty(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "tick", "auth.json")
-	store := KeyringStore{Path: path}
+	store := FileStore{Path: path}
 
 	if err := store.SaveToken(Token{AccessToken: "access-1"}); err != nil {
 		t.Fatalf("SaveToken() error = %v", err)
@@ -145,8 +145,8 @@ func TestKeyringStoreDeleteRemovesFileWhenEmpty(t *testing.T) {
 	}
 }
 
-func TestKeyringStoreFileHasRestrictedPermissions(t *testing.T) {
-	store := KeyringStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+func TestFileStoreFileHasRestrictedPermissions(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	if err := store.SaveToken(Token{AccessToken: "access-1"}); err != nil {
 		t.Fatalf("SaveToken() error = %v", err)
@@ -161,13 +161,13 @@ func TestKeyringStoreFileHasRestrictedPermissions(t *testing.T) {
 	}
 }
 
-func TestKeyringStoreRejectsInsecureDirectory(t *testing.T) {
+func TestFileStoreRejectsInsecureDirectory(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "tick", "auth.json")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
 
-	store := KeyringStore{Path: path}
+	store := FileStore{Path: path}
 
 	err := store.SaveToken(Token{AccessToken: "access-1"})
 	if err == nil {
@@ -181,8 +181,8 @@ func TestKeyringStoreRejectsInsecureDirectory(t *testing.T) {
 	}
 }
 
-func TestKeyringStoreTokenAndSecretCoexist(t *testing.T) {
-	store := KeyringStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+func TestFileStoreTokenAndSecretCoexist(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	if err := store.SaveToken(Token{AccessToken: "access-1"}); err != nil {
 		t.Fatalf("SaveToken() error = %v", err)
@@ -208,8 +208,8 @@ func TestKeyringStoreTokenAndSecretCoexist(t *testing.T) {
 	}
 }
 
-func TestKeyringStoreDeleteTokenPreservesSecret(t *testing.T) {
-	store := KeyringStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
+func TestFileStoreDeleteTokenPreservesSecret(t *testing.T) {
+	store := FileStore{Path: filepath.Join(t.TempDir(), "tick", "auth.json")}
 
 	if err := store.SaveToken(Token{AccessToken: "access-1"}); err != nil {
 		t.Fatalf("SaveToken() error = %v", err)
