@@ -49,9 +49,12 @@ func NewAuthCommand(resolveAuthApp AuthResolver, resolveAuthService AuthServiceR
 			if err != nil {
 				return err
 			}
-			clientSecret, err := Prompt(streams, "Client Secret", cfg.ClientSecret)
+			clientSecret, err := PromptSecret(streams, "Client Secret", cfg.ClientSecret != "")
 			if err != nil {
 				return err
+			}
+			if clientSecret == "" {
+				clientSecret = cfg.ClientSecret
 			}
 
 			if err := authApp.Login(cmd.Context(), app.LoginInput{
