@@ -67,6 +67,7 @@ func TestAuthAppLoginPersistsConfigBeforeServiceLogin(t *testing.T) {
 		ClientID:     "client-1",
 		ClientSecret: "secret-1",
 		RedirectURL:  "http://localhost:14573/callback",
+		Region:       "dida365",
 	})
 	if err == nil {
 		t.Fatal("Login() error = nil, want non-nil")
@@ -78,6 +79,12 @@ func TestAuthAppLoginPersistsConfigBeforeServiceLogin(t *testing.T) {
 	}
 	if cfg.ClientID != "client-1" {
 		t.Fatalf("ClientID = %q, want client-1", cfg.ClientID)
+	}
+	if cfg.ClientSecret != "secret-1" {
+		t.Fatalf("ClientSecret = %q, want secret-1", cfg.ClientSecret)
+	}
+	if cfg.Region != "dida365" {
+		t.Fatalf("Region = %q, want dida365", cfg.Region)
 	}
 	if cfg.RedirectURL != "http://localhost:14573/callback" {
 		t.Fatalf("RedirectURL = %q, want callback", cfg.RedirectURL)
@@ -95,6 +102,7 @@ func TestAuthAppLoginPersistsConfigOnSuccess(t *testing.T) {
 		ClientID:     "client-1",
 		ClientSecret: "secret-1",
 		RedirectURL:  "http://localhost:14573/callback",
+		Region:       "dida365",
 	}); err != nil {
 		t.Fatalf("Login() error = %v", err)
 	}
@@ -105,6 +113,12 @@ func TestAuthAppLoginPersistsConfigOnSuccess(t *testing.T) {
 	}
 	if cfg.ClientID != "client-1" {
 		t.Fatalf("ClientID = %q, want client-1", cfg.ClientID)
+	}
+	if cfg.ClientSecret != "secret-1" {
+		t.Fatalf("ClientSecret = %q, want secret-1", cfg.ClientSecret)
+	}
+	if cfg.Region != "dida365" {
+		t.Fatalf("Region = %q, want dida365", cfg.Region)
 	}
 	if cfg.RedirectURL != "http://localhost:14573/callback" {
 		t.Fatalf("RedirectURL = %q, want callback", cfg.RedirectURL)
@@ -170,6 +184,93 @@ func TestAuthAppLoginFailsWithoutConfigStoreWhenDefaultsAreRequired(t *testing.T
 	}
 	if !strings.Contains(err.Error(), "client-id") {
 		t.Fatalf("error = %q, want client-id message", err)
+	}
+}
+
+func TestAuthAppLoginDefaultsRedirectURL(t *testing.T) {
+	store := config.NewStore(t.TempDir() + "/config.yaml")
+	app := AuthApp{
+		ConfigStore: store,
+		Service:     fakeAuthService{},
+	}
+
+	if err := app.Login(context.Background(), LoginInput{
+		ClientID:     "client-1",
+		ClientSecret: "secret-1",
+	}); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	cfg, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.RedirectURL != "http://localhost:8080/callback" {
+		t.Fatalf("RedirectURL = %q, want http://localhost:8080/callback", cfg.RedirectURL)
+	}
+}
+
+func TestAuthAppLoginFillsClientSecretFromConfig(t *testing.T) {
+	store := config.NewStore(t.TempDir() + "/config.yaml")
+	if err := store.Save(config.Config{
+		ClientID:     "client-1",
+		ClientSecret: "secret-from-config",
+		RedirectURL:  "http://localhost:14573/callback",
+		Region:       "ticktick",
+	}); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	app := AuthApp{
+		ConfigStore: store,
+		Service:     fakeAuthService{},
+	}
+
+	if err := app.Login(context.Background(), LoginInput{
+		ClientID: "client-1",
+	}); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	cfg, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.ClientSecret != "secret-from-config" {
+		t.Fatalf("ClientSecret = %q, want secret-from-config", cfg.ClientSecret)
+	}
+}
+
+func TestAuthAppLoginFillsRegionFromConfig(t *testing.T) {
+	store := config.NewStore(t.TempDir() + "/config.yaml")
+	if err := store.Save(config.Config{
+		ClientID:     "client-1",
+		ClientSecret: "secret-1",
+		RedirectURL:  "http://localhost:14573/callback",
+		Region:       "dida365",
+	}); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	app := AuthApp{
+		ConfigStore: store,
+		Service:     fakeAuthService{},
+	}
+
+	if err := app.Login(context.Background(), LoginInput{
+		ClientID:     "client-1",
+		ClientSecret: "secret-1",
+		RedirectURL:  "http://localhost:14573/callback",
+	}); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	cfg, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Region != "dida365" {
+		t.Fatalf("Region = %q, want dida365", cfg.Region)
 	}
 }
 

@@ -15,6 +15,7 @@ type Config struct {
 	Region         string `yaml:"region"`
 	DefaultProject string `yaml:"default_project"`
 	ClientID       string `yaml:"client_id"`
+	ClientSecret   string `yaml:"client_secret"`
 	RedirectURL    string `yaml:"redirect_url"`
 }
 
