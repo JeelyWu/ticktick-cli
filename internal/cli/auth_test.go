@@ -1,9 +1,10 @@
 package cli
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
-	"os"
 	"strings"
 	"testing"
 
@@ -32,42 +33,93 @@ func (r *recordingAuthService) Logout(context.Context) error {
 	return nil
 }
 
-func TestAuthLoginUsesClientSecretFromEnvironment(t *testing.T) {
-	t.Setenv("TICK_CLIENT_SECRET", "env-secret")
+func TestAuthLogin_Interactive(t *testing.T) {
+	// Override IsTerminal to always return true for this test
+	origIsTerminal := isTerminal
+	isTerminal = func(Streams) bool { return true }
+	defer func() { isTerminal = origIsTerminal }()
 
 	streams, stdout, stderr := newTestStreams()
+	streams.In = bufio.NewReader(bytes.NewBufferString("1\nmy-client-id\nmy-secret\n"))
+
 	service := &recordingAuthService{}
+	store := config.NewStore(t.TempDir() + "/config.yaml")
 	cmd := NewAuthCommand(func() (*app.AuthApp, error) {
 		return &app.AuthApp{
-			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
+			ConfigStore: store,
 			Service:     service,
 		}, nil
 	}, nil, nil, streams)
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
 	cmd.SetErr(streams.ErrOut)
-	cmd.SetArgs([]string{
-		"login",
-		"--client-id", "client-1",
-		"--redirect-url", "http://localhost:14573/callback",
-	})
+	cmd.SetArgs([]string{"login"})
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	if service.loginInput.ClientSecret != "env-secret" {
-		t.Fatalf("ClientSecret = %q, want env-secret", service.loginInput.ClientSecret)
+	if service.loginInput.ClientID != "my-client-id" {
+		t.Fatalf("ClientID = %q, want my-client-id", service.loginInput.ClientID)
 	}
-	if got := strings.TrimSpace(stdout.String()); got != "Login successful" {
-		t.Fatalf("stdout = %q, want Login successful", got)
+	if service.loginInput.ClientSecret != "my-secret" {
+		t.Fatalf("ClientSecret = %q, want my-secret", service.loginInput.ClientSecret)
+	}
+	if !strings.Contains(stdout.String(), "Login successful") {
+		t.Fatalf("stdout = %q, want Login successful", stdout.String())
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 }
 
-func TestAuthLoginHelpMentionsEnvironmentFallback(t *testing.T) {
+func TestAuthLogin_UsesConfigDefaults(t *testing.T) {
+	// Override IsTerminal to always return true for this test
+	origIsTerminal := isTerminal
+	isTerminal = func(Streams) bool { return true }
+	defer func() { isTerminal = origIsTerminal }()
+
 	streams, stdout, stderr := newTestStreams()
+	streams.In = bufio.NewReader(bytes.NewBufferString("\n\n\n"))
+
+	store := config.NewStore(t.TempDir() + "/config.yaml")
+	_ = store.Save(config.Config{
+		Region:       "dida365",
+		ClientID:     "saved-client-id",
+		ClientSecret: "saved-secret",
+	})
+
+	service := &recordingAuthService{}
+	cmd := NewAuthCommand(func() (*app.AuthApp, error) {
+		return &app.AuthApp{
+			ConfigStore: store,
+			Service:     service,
+		}, nil
+	}, nil, nil, streams)
+	cmd.SetIn(streams.In)
+	cmd.SetOut(streams.Out)
+	cmd.SetErr(streams.ErrOut)
+	cmd.SetArgs([]string{"login"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if service.loginInput.ClientID != "saved-client-id" {
+		t.Fatalf("ClientID = %q, want saved-client-id", service.loginInput.ClientID)
+	}
+	if service.loginInput.ClientSecret != "saved-secret" {
+		t.Fatalf("ClientSecret = %q, want saved-secret", service.loginInput.ClientSecret)
+	}
+	if !strings.Contains(stdout.String(), "Login successful") {
+		t.Fatalf("stdout = %q, want Login successful", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestAuthLogin_NonTerminalFails(t *testing.T) {
+	streams, _, _ := newTestStreams()
+	// streams.In is a bytes.Buffer, not a terminal
 	cmd := NewAuthCommand(func() (*app.AuthApp, error) {
 		return &app.AuthApp{
 			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
@@ -77,76 +129,14 @@ func TestAuthLoginHelpMentionsEnvironmentFallback(t *testing.T) {
 	cmd.SetIn(streams.In)
 	cmd.SetOut(streams.Out)
 	cmd.SetErr(streams.ErrOut)
-	cmd.SetArgs([]string{"login", "--help"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-	if !strings.Contains(stdout.String(), "TICK_CLIENT_SECRET") {
-		t.Fatalf("help output = %q, want TICK_CLIENT_SECRET", stdout.String())
-	}
-	if strings.Contains(stdout.String(), "--client-secret") {
-		t.Fatalf("help output = %q, want client-secret flag hidden", stdout.String())
-	}
-	if stderr.Len() != 0 {
-		t.Fatalf("stderr = %q, want empty", stderr.String())
-	}
-}
-
-func TestAuthLoginFlagOverridesEnvironment(t *testing.T) {
-	t.Setenv("TICK_CLIENT_SECRET", "env-secret")
-
-	streams, _, _ := newTestStreams()
-	service := &recordingAuthService{}
-	cmd := NewAuthCommand(func() (*app.AuthApp, error) {
-		return &app.AuthApp{
-			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
-			Service:     service,
-		}, nil
-	}, nil, nil, streams)
-	cmd.SetIn(streams.In)
-	cmd.SetOut(streams.Out)
-	cmd.SetErr(streams.ErrOut)
-	cmd.SetArgs([]string{
-		"login",
-		"--client-id", "client-1",
-		"--client-secret", "flag-secret",
-		"--redirect-url", "http://localhost:14573/callback",
-	})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-	if service.loginInput.ClientSecret != "flag-secret" {
-		t.Fatalf("ClientSecret = %q, want flag-secret", service.loginInput.ClientSecret)
-	}
-}
-
-func TestAuthLoginWithoutEnvOrFlagStillFails(t *testing.T) {
-	_ = os.Unsetenv("TICK_CLIENT_SECRET")
-
-	streams, _, _ := newTestStreams()
-	cmd := NewAuthCommand(func() (*app.AuthApp, error) {
-		return &app.AuthApp{
-			ConfigStore: config.NewStore(t.TempDir() + "/config.yaml"),
-			Service:     &recordingAuthService{},
-		}, nil
-	}, nil, nil, streams)
-	cmd.SetIn(streams.In)
-	cmd.SetOut(streams.Out)
-	cmd.SetErr(streams.ErrOut)
-	cmd.SetArgs([]string{
-		"login",
-		"--client-id", "client-1",
-		"--redirect-url", "http://localhost:14573/callback",
-	})
+	cmd.SetArgs([]string{"login"})
 
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("Execute() error = nil, want non-nil")
 	}
-	if !strings.Contains(err.Error(), "client-secret") {
-		t.Fatalf("error = %q, want client-secret message", err)
+	if !strings.Contains(err.Error(), "interactive terminal") {
+		t.Fatalf("error = %q, want interactive terminal message", err.Error())
 	}
 }
 

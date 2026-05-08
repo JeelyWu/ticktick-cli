@@ -10,12 +10,19 @@ import (
 	"golang.org/x/term"
 )
 
+func getReader(streams Streams) *bufio.Reader {
+	if r, ok := streams.In.(*bufio.Reader); ok {
+		return r
+	}
+	return bufio.NewReader(streams.In)
+}
+
 func Confirm(streams Streams, prompt string) (bool, error) {
 	_, err := fmt.Fprintf(streams.Out, "%s [y/N]: ", prompt)
 	if err != nil {
 		return false, err
 	}
-	answer, err := bufio.NewReader(streams.In).ReadString('\n')
+	answer, err := getReader(streams).ReadString('\n')
 	if err != nil {
 		return false, err
 	}
@@ -23,7 +30,7 @@ func Confirm(streams Streams, prompt string) (bool, error) {
 	return answer == "y" || answer == "yes", nil
 }
 
-func IsTerminal(streams Streams) bool {
+var isTerminal = func(streams Streams) bool {
 	f, ok := streams.In.(interface{ Fd() uintptr })
 	if !ok {
 		return false
@@ -31,11 +38,15 @@ func IsTerminal(streams Streams) bool {
 	return term.IsTerminal(int(f.Fd()))
 }
 
+func IsTerminal(streams Streams) bool {
+	return isTerminal(streams)
+}
+
 func SelectProject(streams Streams, projects []domain.Project) (domain.Project, error) {
 	for i, p := range projects {
 		_, _ = fmt.Fprintf(streams.Out, "  %d. %s\n", i+1, p.Name)
 	}
-	reader := bufio.NewReader(streams.In)
+	reader := getReader(streams)
 	for {
 		_, err := fmt.Fprint(streams.Out, "Select project: ")
 		if err != nil {
@@ -67,7 +78,7 @@ func SelectRegion(streams Streams, defaultRegion string) (string, error) {
 		defaultIdx = 2
 	}
 
-	reader := bufio.NewReader(streams.In)
+	reader := getReader(streams)
 	for {
 		if defaultIdx > 0 {
 			_, err := fmt.Fprintf(streams.Out, "Select [%d]: ", defaultIdx)
@@ -123,7 +134,7 @@ func Prompt(streams Streams, label, defaultValue string) (string, error) {
 		}
 	}
 
-	input, err := bufio.NewReader(streams.In).ReadString('\n')
+	input, err := getReader(streams).ReadString('\n')
 	if err != nil {
 		return "", err
 	}
@@ -147,7 +158,7 @@ func PromptSecret(streams Streams, label string, hasExisting bool) (string, erro
 		}
 	}
 
-	input, err := bufio.NewReader(streams.In).ReadString('\n')
+	input, err := getReader(streams).ReadString('\n')
 	if err != nil {
 		return "", err
 	}

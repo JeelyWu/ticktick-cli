@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/jeely/ticktick-cli/internal/app"
@@ -16,29 +15,49 @@ func NewAuthCommand(resolveAuthApp AuthResolver, resolveAuthService AuthServiceR
 		Short: "Authenticate with TickTick",
 	}
 
-	var clientID string
-	var clientSecret string
-	var redirectURL string
 	login := &cobra.Command{
 		Use:   "login",
 		Short: "Start the TickTick OAuth login flow",
-		Long:  "Start the TickTick OAuth login flow. The CLI will try to capture localhost callbacks automatically and will fall back to manual callback URL paste when needed. Prefer setting TICK_CLIENT_SECRET instead of passing secrets on the command line.",
+		Long:  "Start the TickTick OAuth login flow interactively. The CLI will prompt for region, client ID, and client secret, then try to capture localhost callbacks automatically and fall back to manual callback URL paste when needed.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if resolveAuthApp == nil {
 				return errors.New("auth login is unavailable")
+			}
+			if !IsTerminal(streams) {
+				return errors.New("auth login requires an interactive terminal")
 			}
 			authApp, err := resolveAuthApp()
 			if err != nil {
 				return err
 			}
-			loginSecret := clientSecret
-			if loginSecret == "" {
-				loginSecret = os.Getenv("TICK_CLIENT_SECRET")
+
+			cfg := app.LoginInput{}
+			if authApp.ConfigStore != nil {
+				loaded, err := authApp.ConfigStore.Load()
+				if err == nil {
+					cfg.Region = loaded.Region
+					cfg.ClientID = loaded.ClientID
+					cfg.ClientSecret = loaded.ClientSecret
+				}
 			}
+
+			region, err := SelectRegion(streams, cfg.Region)
+			if err != nil {
+				return err
+			}
+			clientID, err := Prompt(streams, "Client ID", cfg.ClientID)
+			if err != nil {
+				return err
+			}
+			clientSecret, err := Prompt(streams, "Client Secret", cfg.ClientSecret)
+			if err != nil {
+				return err
+			}
+
 			if err := authApp.Login(cmd.Context(), app.LoginInput{
+				Region:       region,
 				ClientID:     clientID,
-				ClientSecret: loginSecret,
-				RedirectURL:  redirectURL,
+				ClientSecret: clientSecret,
 			}); err != nil {
 				return err
 			}
@@ -46,11 +65,6 @@ func NewAuthCommand(resolveAuthApp AuthResolver, resolveAuthService AuthServiceR
 			return err
 		},
 	}
-	login.Flags().StringVar(&clientID, "client-id", "", "TickTick OAuth client ID")
-	login.Flags().StringVar(&clientSecret, "client-secret", "", "TickTick OAuth client secret (defaults to TICK_CLIENT_SECRET)")
-	login.Flags().StringVar(&redirectURL, "redirect-url", "", "TickTick OAuth redirect URL")
-	_ = login.Flags().MarkDeprecated("client-secret", "prefer TICK_CLIENT_SECRET to avoid exposing secrets in shell history")
-	_ = login.Flags().MarkHidden("client-secret")
 
 	status := &cobra.Command{
 		Use:   "status",
