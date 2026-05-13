@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -89,5 +90,47 @@ func TestStoreLoadRejectsUnknownFields(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "field unknown_field not found") {
 		t.Fatalf("Load() error = %q, want unknown field message", err.Error())
+	}
+}
+
+func TestStoreSaveCreatesDirectoryWithRestrictedPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX permission checks skipped on windows")
+	}
+
+	path := filepath.Join(t.TempDir(), "tick", "config.yaml")
+	store := NewStore(path)
+
+	if err := store.Save(Default()); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	info, err := os.Stat(filepath.Dir(path))
+	if err != nil {
+		t.Fatalf("Stat() error = %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o700 {
+		t.Fatalf("directory permissions = %#o, want 0700", got)
+	}
+}
+
+func TestStoreSaveCreatesFileWithRestrictedPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX permission checks skipped on windows")
+	}
+
+	path := filepath.Join(t.TempDir(), "tick", "config.yaml")
+	store := NewStore(path)
+
+	if err := store.Save(Default()); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat() error = %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Fatalf("file permissions = %#o, want 0600", got)
 	}
 }
