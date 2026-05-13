@@ -58,7 +58,7 @@ func (c *Client) GetFocus(ctx context.Context, token, focusID string) (domain.Fo
 }
 
 func (c *Client) ListFocus(ctx context.Context, token string, startDate, endDate time.Time) ([]domain.Focus, error) {
-	path := fmt.Sprintf("/open/v1/focus?startDate=%s&endDate=%s",
+	path := fmt.Sprintf("/open/v1/focus?from=%s&to=%s",
 		startDate.Format(time.RFC3339),
 		endDate.Format(time.RFC3339))
 	var resp focusListResponse
