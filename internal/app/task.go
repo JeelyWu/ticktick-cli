@@ -127,34 +127,7 @@ func (a TaskApp) findTask(ctx context.Context, ref string, projectRef string) (d
 }
 
 func (a TaskApp) Today(ctx context.Context) ([]domain.Task, map[string]string, error) {
-	token, err := a.Auth.AccessToken(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	projects, err := a.Client.ListProjects(ctx, token)
-	if err != nil {
-		return nil, nil, err
-	}
-	now := time.Now()
-	if a.Now != nil {
-		now = a.Now()
-	}
-	projectNames := make(map[string]string, len(projects))
-	var tasks []domain.Task
-	for _, project := range projects {
-		projectNames[project.ID] = project.Name
-		_, projectTasks, err := a.Client.GetProjectData(ctx, token, project.ID)
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, task := range projectTasks {
-			if taskIsDueTodayOrOverdue(task, now) {
-				tasks = append(tasks, task)
-			}
-		}
-	}
-	sortTasks(tasks)
-	return tasks, projectNames, nil
+	return a.List(ctx, ListTasksInput{Today: true})
 }
 
 func resolveTaskReference(ref string, tasks []domain.Task) (domain.Task, error) {
