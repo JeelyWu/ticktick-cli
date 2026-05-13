@@ -293,9 +293,15 @@ func readAuthorizationResponseEither(ctx context.Context, r io.Reader, callback 
 		err      error
 	}
 	manualCh := make(chan result, 1)
+	done := make(chan struct{})
+	defer close(done)
+
 	go func() {
 		response, err := readAuthorizationResponse(r)
-		manualCh <- result{response: response, err: err}
+		select {
+		case manualCh <- result{response: response, err: err}:
+		case <-done:
+		}
 	}()
 
 	select {
