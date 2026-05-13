@@ -27,6 +27,8 @@ func (a ConfigApp) Get(ctx context.Context, key string) (string, error) {
 		return cfg.DefaultProject, nil
 	case "client_id":
 		return cfg.ClientID, nil
+	case "client_secret":
+		return cfg.ClientSecret, nil
 	case "redirect_url":
 		return cfg.RedirectURL, nil
 	default:
@@ -66,6 +68,8 @@ func (a ConfigApp) Set(ctx context.Context, key, value string) error {
 		cfg.DefaultProject = value
 	case "client_id":
 		cfg.ClientID = value
+	case "client_secret":
+		cfg.ClientSecret = value
 	case "redirect_url":
 		cfg.RedirectURL = value
 	default:
