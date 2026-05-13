@@ -74,6 +74,13 @@ func TestDoJSONReturnsRemoteError(t *testing.T) {
 	}
 }
 
+func TestRemoteErrorString(t *testing.T) {
+	err := &RemoteError{StatusCode: 404, Body: "not found"}
+	if got, want := err.Error(), `ticktick api error: status=404 body="not found"`; got != want {
+		t.Fatalf("Error() = %q, want %q", got, want)
+	}
+}
+
 func TestDoJSONEncodesRequestJSONAndTreatsEmptySuccessAsSuccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got, want := r.Header.Get("Content-Type"), "application/json"; got != want {

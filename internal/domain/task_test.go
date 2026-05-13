@@ -3,19 +3,35 @@ package domain
 import "testing"
 
 func TestPriorityString(t *testing.T) {
-	if got := PriorityHigh.String(); got != "high" {
-		t.Fatalf("PriorityHigh.String() = %q, want high", got)
+	cases := []struct {
+		p    Priority
+		want string
+	}{
+		{PriorityNone, "none"},
+		{PriorityLow, "low"},
+		{PriorityMedium, "medium"},
+		{PriorityHigh, "high"},
+		{Priority(99), "unknown"},
 	}
-	if got := Priority(99).String(); got != "unknown" {
-		t.Fatalf("Priority(99).String() = %q, want unknown", got)
+	for _, tc := range cases {
+		if got := tc.p.String(); got != tc.want {
+			t.Fatalf("Priority(%d).String() = %q, want %q", tc.p, got, tc.want)
+		}
 	}
 }
 
 func TestTaskStatusString(t *testing.T) {
-	if got := StatusOpen.String(); got != "open" {
-		t.Fatalf("StatusOpen.String() = %q, want open", got)
+	cases := []struct {
+		s    TaskStatus
+		want string
+	}{
+		{StatusOpen, "open"},
+		{StatusCompleted, "completed"},
+		{TaskStatus(99), "unknown"},
 	}
-	if got := StatusCompleted.String(); got != "completed" {
-		t.Fatalf("StatusCompleted.String() = %q, want completed", got)
+	for _, tc := range cases {
+		if got := tc.s.String(); got != tc.want {
+			t.Fatalf("TaskStatus(%d).String() = %q, want %q", tc.s, got, tc.want)
+		}
 	}
 }
