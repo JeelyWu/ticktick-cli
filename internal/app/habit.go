@@ -38,18 +38,28 @@ func (a HabitApp) List(ctx context.Context) ([]domain.Habit, error) {
 }
 
 func (a HabitApp) Get(ctx context.Context, ref string) (domain.Habit, error) {
+	token, err := a.Auth.AccessToken(ctx)
+	if err != nil {
+		return domain.Habit{}, err
+	}
 	if looksLikeID(ref) {
-		token, err := a.Auth.AccessToken(ctx)
-		if err != nil {
-			return domain.Habit{}, err
-		}
 		return a.Client.GetHabit(ctx, token, ref)
 	}
 	habits, err := a.List(ctx)
 	if err != nil {
 		return domain.Habit{}, err
 	}
-	return ResolveHabit(ref, habits)
+	habit, err := ResolveHabit(ref, habits)
+	if err == nil {
+		return habit, nil
+	}
+	// Fallback: the habit may be archived and ListHabits only returns active habits.
+	// Try a direct API call in case ref is actually an ID.
+	h, apiErr := a.Client.GetHabit(ctx, token, ref)
+	if apiErr == nil {
+		return h, nil
+	}
+	return domain.Habit{}, err
 }
 
 func looksLikeID(ref string) bool {
