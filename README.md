@@ -153,9 +153,9 @@ tick habit log "Read 30 min"
 
 ```bash
 tick focus ls
+tick focus ls --type 0                    # pomodoro (default: 1=timer)
 tick focus get <focus-id>
-tick focus start "Deep work" --project Work
-tick focus stop <focus-id>
+tick focus get <focus-id> --type 0        # pomodoro (default: 1=timer)
 ```
 
 ### Configuration
@@ -165,7 +165,7 @@ tick config list
 tick config get region
 tick config set region ticktick      # or dida365
 tick config set output json          # default output format
-tick config set default_project Work # default for quick add / task add / focus start
+tick config set default_project Work # default for quick add / task add
 ```
 
 Switching regions after login requires re-authentication:

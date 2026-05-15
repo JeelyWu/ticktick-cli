@@ -153,9 +153,9 @@ tick habit log "Read 30 min"
 
 ```bash
 tick focus ls
+tick focus ls --type 0                    # 番茄钟（默认：1=正计时）
 tick focus get <focus-id>
-tick focus start "Deep work" --project Work
-tick focus stop <focus-id>
+tick focus get <focus-id> --type 0        # 番茄钟（默认：1=正计时）
 ```
 
 ### 配置
@@ -165,7 +165,7 @@ tick config list
 tick config get region
 tick config set region ticktick      # 或 dida365
 tick config set output json          # 默认输出格式
-tick config set default_project Work # quick add / task add / focus start 的默认项目
+tick config set default_project Work # quick add / task add 的默认项目
 ```
 
 切换区域后需要重新登录：

@@ -20,6 +20,28 @@ func (m FocusMode) String() string {
 	}
 }
 
+func FocusModeFromAPIType(t int) FocusMode {
+	switch t {
+	case 0:
+		return FocusModePomodoro
+	case 1:
+		return FocusModeTimer
+	default:
+		return FocusModeTimer
+	}
+}
+
+func (m FocusMode) APIType() int {
+	switch m {
+	case FocusModePomodoro:
+		return 0
+	case FocusModeTimer:
+		return 1
+	default:
+		return 1
+	}
+}
+
 type FocusStatus int
 
 const (
@@ -55,11 +77,3 @@ type Focus struct {
 	SortOrder     int         `json:"sortOrder"`
 }
 
-type StartFocusInput struct {
-	Title     string
-	Content   string
-	ProjectID string
-	TaskID    string
-	Mode      FocusMode
-	StartDate *time.Time
-}

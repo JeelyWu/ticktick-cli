@@ -9,10 +9,8 @@ import (
 )
 
 type FocusAPI interface {
-	GetFocus(context.Context, string, string) (domain.Focus, error)
-	ListFocus(context.Context, string, time.Time, time.Time) ([]domain.Focus, error)
-	StartFocus(context.Context, string, domain.StartFocusInput) (domain.Focus, error)
-	StopFocus(context.Context, string, string) error
+	GetFocus(context.Context, string, string, int) (domain.Focus, error)
+	ListFocus(context.Context, string, time.Time, time.Time, int) ([]domain.Focus, error)
 	ListProjects(context.Context, string) ([]domain.Project, error)
 }
 
@@ -23,18 +21,9 @@ type FocusApp struct {
 }
 
 type ListFocusInput struct {
-	From    string
-	To      string
-	Project string
-}
-
-type StartFocusAppInput struct {
-	Title     string
-	Content   string
-	ProjectRef string
-	TaskID    string
-	Mode      domain.FocusMode
-	StartRaw  string
+	From string
+	To   string
+	Type int
 }
 
 func (a FocusApp) List(ctx context.Context, in ListFocusInput) ([]domain.Focus, map[string]string, error) {
@@ -64,7 +53,7 @@ func (a FocusApp) List(ctx context.Context, in ListFocusInput) ([]domain.Focus, 
 		}
 	}
 
-	focuses, err := a.Client.ListFocus(ctx, token, startDate, endDate)
+	focuses, err := a.Client.ListFocus(ctx, token, startDate, endDate, in.Type)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -79,73 +68,15 @@ func (a FocusApp) List(ctx context.Context, in ListFocusInput) ([]domain.Focus, 
 		projectNames[p.ID] = p.Name
 	}
 
-	if in.Project != "" {
-		project, err := ResolveProject(in.Project, projects)
-		if err != nil {
-			return nil, nil, err
-		}
-		filtered := make([]domain.Focus, 0, len(focuses))
-		for _, f := range focuses {
-			if f.ProjectID == project.ID {
-				filtered = append(filtered, f)
-			}
-		}
-		focuses = filtered
-	}
-
 	return focuses, projectNames, nil
 }
 
-func (a FocusApp) Get(ctx context.Context, focusID string) (domain.Focus, error) {
+func (a FocusApp) Get(ctx context.Context, focusID string, focusType int) (domain.Focus, error) {
 	token, err := a.Auth.AccessToken(ctx)
 	if err != nil {
 		return domain.Focus{}, err
 	}
-	return a.Client.GetFocus(ctx, token, focusID)
-}
-
-func (a FocusApp) Start(ctx context.Context, in StartFocusAppInput) (domain.Focus, error) {
-	token, err := a.Auth.AccessToken(ctx)
-	if err != nil {
-		return domain.Focus{}, err
-	}
-
-	projects, err := a.Client.ListProjects(ctx, token)
-	if err != nil {
-		return domain.Focus{}, err
-	}
-
-	project, err := ResolveProject(in.ProjectRef, projects)
-	if err != nil {
-		return domain.Focus{}, err
-	}
-
-	payload := domain.StartFocusInput{
-		Title:     in.Title,
-		Content:   in.Content,
-		ProjectID: project.ID,
-		TaskID:    in.TaskID,
-		Mode:      in.Mode,
-	}
-
-	if in.StartRaw != "" {
-		loc := time.Local
-		start, err := domain.ParseUserTime(in.StartRaw, loc)
-		if err != nil {
-			return domain.Focus{}, err
-		}
-		payload.StartDate = &start
-	}
-
-	return a.Client.StartFocus(ctx, token, payload)
-}
-
-func (a FocusApp) Stop(ctx context.Context, focusID string) error {
-	token, err := a.Auth.AccessToken(ctx)
-	if err != nil {
-		return err
-	}
-	return a.Client.StopFocus(ctx, token, focusID)
+	return a.Client.GetFocus(ctx, token, focusID, focusType)
 }
 
 func (a FocusApp) ListProjects(ctx context.Context) ([]domain.Project, error) {

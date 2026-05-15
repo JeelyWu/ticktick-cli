@@ -19,7 +19,7 @@ func (f fakeFocusAPI) ListProjects(context.Context, string) ([]domain.Project, e
 	return f.projects, nil
 }
 
-func (f fakeFocusAPI) GetFocus(_ context.Context, _ string, focusID string) (domain.Focus, error) {
+func (f fakeFocusAPI) GetFocus(_ context.Context, _ string, focusID string, focusType int) (domain.Focus, error) {
 	for _, f := range f.focuses {
 		if f.ID == focusID {
 			return f, nil
@@ -28,16 +28,8 @@ func (f fakeFocusAPI) GetFocus(_ context.Context, _ string, focusID string) (dom
 	return domain.Focus{}, nil
 }
 
-func (f fakeFocusAPI) ListFocus(context.Context, string, time.Time, time.Time) ([]domain.Focus, error) {
+func (f fakeFocusAPI) ListFocus(context.Context, string, time.Time, time.Time, int) ([]domain.Focus, error) {
 	return f.focuses, nil
-}
-
-func (f fakeFocusAPI) StartFocus(context.Context, string, domain.StartFocusInput) (domain.Focus, error) {
-	return domain.Focus{ID: "f1", Title: "Test"}, nil
-}
-
-func (f fakeFocusAPI) StopFocus(context.Context, string, string) error {
-	return nil
 }
 
 func TestFocusListPrintsTable(t *testing.T) {
@@ -122,48 +114,6 @@ func TestFocusGetPrintsTable(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "Deep work") {
 		t.Fatalf("stdout = %q, want Deep work", stdout.String())
-	}
-	if stderr.Len() != 0 {
-		t.Fatalf("stderr = %q, want empty", stderr.String())
-	}
-}
-
-func TestFocusStartRequiresProject(t *testing.T) {
-	streams, _, _ := newTestStreams()
-	cmd := NewFocusCommand(func() (*app.FocusApp, error) {
-		return &app.FocusApp{}, nil
-	}, nil, streams)
-	cmd.SetArgs([]string{"start", "Deep work"})
-
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("Execute() error = nil, want non-nil")
-	}
-	if !strings.Contains(err.Error(), "no project specified") {
-		t.Fatalf("error = %q, want no project", err.Error())
-	}
-}
-
-func TestFocusStopPrintsStopped(t *testing.T) {
-	streams, stdout, stderr := newTestStreams()
-	focusApp := &app.FocusApp{
-		Auth:   fakeTokenSource{},
-		Client: fakeFocusAPI{},
-	}
-	cmd := NewRootCommand(RootOptions{
-		Version: "dev",
-		Streams: streams,
-		FocusResolver: func() (*app.FocusApp, error) {
-			return focusApp, nil
-		},
-	})
-	cmd.SetArgs([]string{"focus", "stop", "f1"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-	if !strings.Contains(stdout.String(), "Stopped") {
-		t.Fatalf("stdout = %q, want Stopped", stdout.String())
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
