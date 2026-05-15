@@ -116,10 +116,57 @@ func TestHabitGetByName(t *testing.T) {
 	}
 }
 
+func TestHabitGetByID(t *testing.T) {
+	client := &stubHabitAPI{
+		getHabit: func(_ context.Context, _, id string) (domain.Habit, error) {
+			if id == "abc123def456789012345678" {
+				return domain.Habit{ID: "abc123def456789012345678", Name: "Exercise"}, nil
+			}
+			return domain.Habit{}, errors.New("not found")
+		},
+	}
+	app := newTestHabitApp(client)
+	habit, err := app.Get(context.Background(), "abc123def456789012345678")
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if habit.ID != "abc123def456789012345678" {
+		t.Fatalf("habit.ID = %q, want abc123def456789012345678", habit.ID)
+	}
+}
+
+func TestHabitGetFallbackToAPI(t *testing.T) {
+	client := &stubHabitAPI{
+		listHabits: func(_ context.Context, _ string) ([]domain.Habit, error) {
+			return []domain.Habit{{ID: "h1", Name: "Other"}}, nil
+		},
+		getHabit: func(_ context.Context, _, id string) (domain.Habit, error) {
+			if id == "archived-habit" {
+				return domain.Habit{ID: "archived-habit", Name: "Archived Habit", Status: domain.HabitStatusArchived}, nil
+			}
+			return domain.Habit{}, errors.New("not found")
+		},
+	}
+	app := newTestHabitApp(client)
+	habit, err := app.Get(context.Background(), "archived-habit")
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if habit.ID != "archived-habit" {
+		t.Fatalf("habit.ID = %q, want archived-habit", habit.ID)
+	}
+	if habit.Status != domain.HabitStatusArchived {
+		t.Fatalf("habit.Status = %v, want archived", habit.Status)
+	}
+}
+
 func TestHabitGetNotFound(t *testing.T) {
 	client := &stubHabitAPI{
 		listHabits: func(_ context.Context, _ string) ([]domain.Habit, error) {
 			return []domain.Habit{}, nil
+		},
+		getHabit: func(_ context.Context, _, _ string) (domain.Habit, error) {
+			return domain.Habit{}, errors.New("not found")
 		},
 	}
 	app := newTestHabitApp(client)
