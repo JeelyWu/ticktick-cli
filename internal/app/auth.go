@@ -14,9 +14,12 @@ type AuthService interface {
 	Logout(context.Context) error
 }
 
+type AuthServiceFactory func(region string) (AuthService, error)
+
 type AuthApp struct {
-	ConfigStore *config.Store
-	Service     AuthService
+	ConfigStore      *config.Store
+	Service          AuthService
+	ServiceForRegion AuthServiceFactory
 }
 
 type LoginInput struct {
@@ -58,6 +61,17 @@ func (a AuthApp) Login(ctx context.Context, in LoginInput) error {
 	if in.ClientID == "" || in.ClientSecret == "" || in.RedirectURL == "" {
 		return errors.New("login requires client-id, client-secret, and redirect-url")
 	}
+	service := a.Service
+	if a.ServiceForRegion != nil {
+		var err error
+		service, err = a.ServiceForRegion(in.Region)
+		if err != nil {
+			return err
+		}
+	}
+	if service == nil {
+		return errors.New("auth service is unavailable")
+	}
 	if a.ConfigStore != nil {
 		cfg.ClientID = in.ClientID
 		cfg.ClientSecret = in.ClientSecret
@@ -67,7 +81,7 @@ func (a AuthApp) Login(ctx context.Context, in LoginInput) error {
 			return err
 		}
 	}
-	_, err := a.Service.Login(ctx, auth.LoginInput{
+	_, err := service.Login(ctx, auth.LoginInput{
 		ClientID:     in.ClientID,
 		ClientSecret: in.ClientSecret,
 		RedirectURL:  in.RedirectURL,

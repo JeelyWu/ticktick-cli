@@ -36,6 +36,23 @@ func (f fakeAuthService) Logout(context.Context) error {
 	return nil
 }
 
+type recordingLoginAuthService struct {
+	loginInput auth.LoginInput
+}
+
+func (r *recordingLoginAuthService) Login(_ context.Context, in auth.LoginInput) (auth.Token, error) {
+	r.loginInput = in
+	return auth.Token{AccessToken: "access-1"}, nil
+}
+
+func (r *recordingLoginAuthService) Status(context.Context) (auth.Status, error) {
+	return auth.Status{}, nil
+}
+
+func (r *recordingLoginAuthService) Logout(context.Context) error {
+	return nil
+}
+
 func TestAuthAppStatus(t *testing.T) {
 	store := config.NewStore(t.TempDir() + "/config.yaml")
 	app := AuthApp{
@@ -122,6 +139,49 @@ func TestAuthAppLoginPersistsConfigOnSuccess(t *testing.T) {
 	}
 	if cfg.RedirectURL != "http://localhost:14573/callback" {
 		t.Fatalf("RedirectURL = %q, want callback", cfg.RedirectURL)
+	}
+}
+
+func TestAuthAppLoginBuildsServiceForSelectedRegion(t *testing.T) {
+	store := config.NewStore(t.TempDir() + "/config.yaml")
+	if err := store.Save(config.Config{
+		Region:       "ticktick",
+		ClientID:     "old-client-id",
+		ClientSecret: "old-secret",
+		RedirectURL:  "http://localhost:14573/callback",
+	}); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	selectedRegion := ""
+	service := &recordingLoginAuthService{}
+	app := AuthApp{
+		ConfigStore: store,
+		ServiceForRegion: func(region string) (AuthService, error) {
+			selectedRegion = region
+			return service, nil
+		},
+	}
+
+	if err := app.Login(context.Background(), LoginInput{
+		Region:       "dida365",
+		ClientID:     "new-client-id",
+		ClientSecret: "new-secret",
+	}); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+	if selectedRegion != "dida365" {
+		t.Fatalf("service region = %q, want dida365", selectedRegion)
+	}
+	if service.loginInput.ClientID != "new-client-id" {
+		t.Fatalf("ClientID = %q, want new-client-id", service.loginInput.ClientID)
+	}
+	cfg, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Region != "dida365" {
+		t.Fatalf("stored Region = %q, want dida365", cfg.Region)
 	}
 }
 
