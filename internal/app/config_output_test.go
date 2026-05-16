@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jeely/ticktick-cli/internal/config"
+	"github.com/jeelywu/ticktick-cli/internal/config"
 )
 
 func TestConfigAppSetRejectsUnsupportedOutputDefault(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jeely/ticktick-cli/internal/config"
-	"github.com/jeely/ticktick-cli/internal/endpoint"
+	"github.com/jeelywu/ticktick-cli/internal/config"
+	"github.com/jeelywu/ticktick-cli/internal/endpoint"
 	"gopkg.in/yaml.v3"
 )
 

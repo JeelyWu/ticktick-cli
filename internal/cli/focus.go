@@ -3,9 +3,9 @@ package cli
 import (
 	"errors"
 
-	"github.com/jeely/ticktick-cli/internal/app"
-	"github.com/jeely/ticktick-cli/internal/domain"
-	"github.com/jeely/ticktick-cli/internal/output"
+	"github.com/jeelywu/ticktick-cli/internal/app"
+	"github.com/jeelywu/ticktick-cli/internal/domain"
+	"github.com/jeelywu/ticktick-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 

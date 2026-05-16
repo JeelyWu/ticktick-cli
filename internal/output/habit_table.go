@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"text/tabwriter"
 
-	"github.com/jeely/ticktick-cli/internal/domain"
+	"github.com/jeelywu/ticktick-cli/internal/domain"
 )
 
 func PrintHabitsTable(w io.Writer, habits []domain.Habit) error {

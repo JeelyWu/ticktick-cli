@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/jeely/ticktick-cli/internal/auth"
-	"github.com/jeely/ticktick-cli/internal/config"
+	"github.com/jeelywu/ticktick-cli/internal/auth"
+	"github.com/jeelywu/ticktick-cli/internal/config"
 )
 
 type AuthService interface {

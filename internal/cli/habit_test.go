@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jeely/ticktick-cli/internal/app"
-	"github.com/jeely/ticktick-cli/internal/domain"
+	"github.com/jeelywu/ticktick-cli/internal/app"
+	"github.com/jeelywu/ticktick-cli/internal/domain"
 )
 
 func TestHabitListJSON(t *testing.T) {

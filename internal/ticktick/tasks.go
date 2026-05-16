@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jeely/ticktick-cli/internal/domain"
+	"github.com/jeelywu/ticktick-cli/internal/domain"
 )
 
 type taskDTO struct {

@@ -1,4 +1,4 @@
-module github.com/jeely/ticktick-cli
+module github.com/jeelywu/ticktick-cli
 
 go 1.24
 

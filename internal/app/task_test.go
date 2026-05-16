@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jeely/ticktick-cli/internal/domain"
+	"github.com/jeelywu/ticktick-cli/internal/domain"
 )
 
 type stubTokenSource struct{}

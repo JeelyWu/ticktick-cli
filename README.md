@@ -1,15 +1,19 @@
-# tick
+# tick - TickTick/Dida365 CLI
 
 [中文](README.zh-CN.md) | **English**
 
 [![Unit Tests](https://github.com/JeelyWu/ticktick-cli/actions/workflows/unit-tests.yml/badge.svg?branch=master)](https://github.com/JeelyWu/ticktick-cli/actions/workflows/unit-tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-`tick` is a Go CLI for TickTick / Dida365 via the official Open API.
+`tick` is an unofficial Go CLI for TickTick / Dida365, including the mainland China Dida365 service known as 滴答清单. It uses the official Open API to bring task capture, project management, habits, focus sessions, and scriptable output into your terminal.
 
-- OAuth login (interactive, with auto localhost callback capture)
-- Manage projects, tasks, habits, and focus sessions
-- Quick-add syntax for fast task capture
-- Local defaults for output format, default project, and region
+## Why tick?
+
+- Capture tasks quickly from the terminal with compact quick-add syntax.
+- Manage TickTick/Dida365 projects, tasks, habits, and focus sessions from one binary.
+- Use table output for humans and JSON output for shell scripts, launchers, and automation.
+- Log in with an interactive OAuth flow that can capture localhost callbacks automatically.
+- Switch between TickTick international and Dida365 mainland China regions with local defaults.
 
 ## Install
 
@@ -27,6 +31,12 @@ install -m 0755 tick /usr/local/bin/tick
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/JeelyWu/ticktick-cli/master/scripts/install.sh | bash
+```
+
+### Go install
+
+```bash
+go install github.com/jeelywu/ticktick-cli/cmd/tick@latest
 ```
 
 ### Build from source
@@ -179,3 +189,11 @@ tick auth login
 
 - Output: `table` (default) or `json`. Use `--json` or `tick config set output json`.
 - Priority: `0` none, `1` low, `3` medium, `5` high.
+
+## Disclaimer
+
+`tick` is an independent, unofficial community project. It is not affiliated with, endorsed by, or sponsored by TickTick, Dida365, or Appest.
+
+## License
+
+[MIT](LICENSE)

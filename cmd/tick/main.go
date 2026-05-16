@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jeely/ticktick-cli/internal/app"
-	"github.com/jeely/ticktick-cli/internal/auth"
-	"github.com/jeely/ticktick-cli/internal/cli"
-	"github.com/jeely/ticktick-cli/internal/config"
-	"github.com/jeely/ticktick-cli/internal/endpoint"
-	"github.com/jeely/ticktick-cli/internal/ticktick"
+	"github.com/jeelywu/ticktick-cli/internal/app"
+	"github.com/jeelywu/ticktick-cli/internal/auth"
+	"github.com/jeelywu/ticktick-cli/internal/cli"
+	"github.com/jeelywu/ticktick-cli/internal/config"
+	"github.com/jeelywu/ticktick-cli/internal/endpoint"
+	"github.com/jeelywu/ticktick-cli/internal/ticktick"
 	"github.com/pkg/browser"
 )
 

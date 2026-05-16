@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/jeely/ticktick-cli/internal/domain"
+	"github.com/jeelywu/ticktick-cli/internal/domain"
 )
 
 func TestListHabits(t *testing.T) {

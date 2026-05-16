@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/jeely/ticktick-cli/internal/domain"
+	"github.com/jeelywu/ticktick-cli/internal/domain"
 )
 
 const authFileName = "auth.json"

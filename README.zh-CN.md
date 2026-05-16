@@ -1,15 +1,19 @@
-# tick
+# tick - TickTick/Dida365 CLI
 
 **中文** | [English](README.md)
 
 [![Unit Tests](https://github.com/JeelyWu/ticktick-cli/actions/workflows/unit-tests.yml/badge.svg?branch=master)](https://github.com/JeelyWu/ticktick-cli/actions/workflows/unit-tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-`tick` 是一个基于 Go 编写的 CLI，通过官方 Open API 操作 TickTick 国际版和滴答清单（Dida365）。
+`tick` 是一个非官方的 Go CLI，通过官方 Open API 操作 TickTick 国际版和滴答清单（Dida365）。它把快速录入任务、项目管理、习惯、专注记录和可脚本化输出带到终端里。
 
-- 交互式 OAuth 登录，自动捕获 localhost 回调
-- 管理项目、任务、习惯与专注记录
-- Quick-add 快速录入语法
-- 本地默认配置：输出格式、默认项目、服务区域
+## 为什么用 tick？
+
+- 在终端里用紧凑的 quick-add 语法快速记录任务。
+- 用一个二进制文件管理 TickTick/滴答清单的项目、任务、习惯和专注记录。
+- 面向人类使用表格输出，面向脚本、启动器和自动化使用 JSON 输出。
+- 使用交互式 OAuth 登录，本地环境可自动捕获 localhost 回调。
+- 通过本地默认配置在 TickTick 国际版和滴答清单中国大陆版之间切换。
 
 ## 安装
 
@@ -27,6 +31,12 @@ install -m 0755 tick /usr/local/bin/tick
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/JeelyWu/ticktick-cli/master/scripts/install.sh | bash
+```
+
+### Go install
+
+```bash
+go install github.com/jeelywu/ticktick-cli/cmd/tick@latest
 ```
 
 ### 从源码构建
@@ -179,3 +189,11 @@ tick auth login
 
 - 输出格式：`table`（默认）或 `json`。可用 `--json` 或 `tick config set output json` 设置。
 - 优先级：`0` 无、`1` 低、`3` 中、`5` 高。
+
+## 免责声明
+
+`tick` 是独立的非官方社区项目，与 TickTick、Dida365 或 Appest 没有关联，也未获得其背书或赞助。
+
+## License
+
+[MIT](LICENSE)

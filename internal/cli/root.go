@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/jeely/ticktick-cli/internal/app"
+	"github.com/jeelywu/ticktick-cli/internal/app"
 	"github.com/spf13/cobra"
 )
 

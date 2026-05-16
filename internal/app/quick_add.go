@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jeely/ticktick-cli/internal/config"
-	"github.com/jeely/ticktick-cli/internal/domain"
+	"github.com/jeelywu/ticktick-cli/internal/config"
+	"github.com/jeelywu/ticktick-cli/internal/domain"
 )
 
 func ParseQuickAdd(raw string) (domain.CreateTaskInput, error) {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jeely/ticktick-cli/internal/app"
+	"github.com/jeelywu/ticktick-cli/internal/app"
 )
 
 func newTestStreams() (Streams, *bytes.Buffer, *bytes.Buffer) {

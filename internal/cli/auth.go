@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jeely/ticktick-cli/internal/app"
+	"github.com/jeelywu/ticktick-cli/internal/app"
 	"github.com/spf13/cobra"
 )
 

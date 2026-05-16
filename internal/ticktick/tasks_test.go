@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jeely/ticktick-cli/internal/domain"
+	"github.com/jeelywu/ticktick-cli/internal/domain"
 )
 
 func TestFilterTasks(t *testing.T) {

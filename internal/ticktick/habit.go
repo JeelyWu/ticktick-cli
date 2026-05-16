@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/jeely/ticktick-cli/internal/domain"
+	"github.com/jeelywu/ticktick-cli/internal/domain"
 )
 
 type habitDTO struct {

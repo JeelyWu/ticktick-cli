@@ -3,7 +3,7 @@ package app
 import (
 	"testing"
 
-	"github.com/jeely/ticktick-cli/internal/domain"
+	"github.com/jeelywu/ticktick-cli/internal/domain"
 )
 
 func TestResolveProjectByIDAndName(t *testing.T) {
