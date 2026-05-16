@@ -335,7 +335,9 @@ func TestServiceLoginAcceptsAutomaticLocalCallback(t *testing.T) {
 		t.Fatalf("Listen() error = %v", err)
 	}
 	addr := l.Addr().String()
-	_ = l.Close()
+	t.Cleanup(func() {
+		_ = l.Close()
+	})
 
 	state := "state-1"
 	store := &memoryTokenStore{}
@@ -343,15 +345,14 @@ func TestServiceLoginAcceptsAutomaticLocalCallback(t *testing.T) {
 	out := &bytes.Buffer{}
 	manualIn, manualWriter := io.Pipe()
 	defer manualWriter.Close()
+	listenerReady := make(chan struct{})
 
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		for len(browser.urls) == 0 {
-			time.Sleep(10 * time.Millisecond)
-		}
+		<-listenerReady
 		callbackURL := "http://" + addr + "/callback?code=code-1&state=" + state
-		resp, err := http.Get(callbackURL)
+		resp, err := (&http.Client{Timeout: time.Second}).Get(callbackURL)
 		if err != nil {
 			t.Errorf("http.Get() error = %v", err)
 			return
@@ -359,6 +360,8 @@ func TestServiceLoginAcceptsAutomaticLocalCallback(t *testing.T) {
 		_ = resp.Body.Close()
 	}()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 	token, err := Service{
 		Exchanger: Exchanger{
 			HTTPClient: tokenServer.Client(),
@@ -369,7 +372,14 @@ func TestServiceLoginAcceptsAutomaticLocalCallback(t *testing.T) {
 		In:          manualIn,
 		Out:         out,
 		StateSource: func() string { return state },
-	}.Login(context.Background(), LoginInput{
+		Listen: func(network, address string) (net.Listener, error) {
+			if network != "tcp" || address != addr {
+				t.Fatalf("Listen(%q, %q), want tcp %s", network, address, addr)
+			}
+			close(listenerReady)
+			return l, nil
+		},
+	}.Login(ctx, LoginInput{
 		ClientID:     "client-1",
 		ClientSecret: "secret-1",
 		RedirectURL:  "http://" + addr + "/callback",
