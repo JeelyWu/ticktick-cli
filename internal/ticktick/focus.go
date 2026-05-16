@@ -2,6 +2,7 @@ package ticktick
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -10,19 +11,36 @@ import (
 )
 
 type focusDTO struct {
-	ID            string   `json:"id"`
-	Type          int      `json:"type"`
-	Status        int      `json:"status"`
-	Note          string   `json:"note"`
-	TaskID        string   `json:"taskId"`
-	StartTime     string   `json:"startTime"`
-	EndTime       string   `json:"endTime"`
-	Duration      int64    `json:"duration"`
-	PauseDuration int      `json:"pauseDuration"`
+	ID            string `json:"id"`
+	Type          int    `json:"type"`
+	Status        int    `json:"status"`
+	Note          string `json:"note"`
+	TaskID        string `json:"taskId"`
+	StartTime     string `json:"startTime"`
+	EndTime       string `json:"endTime"`
+	Duration      int64  `json:"duration"`
+	PauseDuration int    `json:"pauseDuration"`
 }
 
 type focusListResponse struct {
 	Focuses []focusDTO `json:"focuses"`
+}
+
+func (r *focusListResponse) UnmarshalJSON(data []byte) error {
+	var items []focusDTO
+	if err := json.Unmarshal(data, &items); err == nil {
+		r.Focuses = items
+		return nil
+	}
+
+	var wrapped struct {
+		Focuses []focusDTO `json:"focuses"`
+	}
+	if err := json.Unmarshal(data, &wrapped); err != nil {
+		return err
+	}
+	r.Focuses = wrapped.Focuses
+	return nil
 }
 
 func mapFocus(dto focusDTO) domain.Focus {

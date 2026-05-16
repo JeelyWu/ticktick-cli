@@ -73,6 +73,30 @@ func TestListFocus(t *testing.T) {
 	}
 }
 
+func TestListFocusAcceptsArrayResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := []focusDTO{
+			{ID: "f1", Note: "Focus 1", Type: 1, Status: 1},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := New(server.URL, server.Client())
+	start := time.Now()
+	end := start.Add(24 * time.Hour)
+	focuses, err := client.ListFocus(context.Background(), "token", start, end, 1)
+	if err != nil {
+		t.Fatalf("ListFocus() error = %v", err)
+	}
+	if len(focuses) != 1 {
+		t.Fatalf("len(focuses) = %d, want 1", len(focuses))
+	}
+	if focuses[0].Mode != domain.FocusModeTimer {
+		t.Fatalf("Mode = %v, want timer", focuses[0].Mode)
+	}
+}
+
 func TestGetFocusReturnsError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
