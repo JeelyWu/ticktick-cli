@@ -42,6 +42,23 @@ func resolveRegion() (string, error) {
 	return cfg.Region, nil
 }
 
+func buildAuthService(region string, streams cli.Streams) (auth.Service, error) {
+	endpoints, err := endpoint.ForRegion(region)
+	if err != nil {
+		return auth.Service{}, err
+	}
+	return auth.Service{
+		AuthorizeURL: endpoints.AuthorizeURL,
+		Exchanger: auth.Exchanger{
+			TokenURL: endpoints.TokenURL,
+		},
+		Store:   auth.FileStore{},
+		Browser: browserOpener{},
+		In:      streams.In,
+		Out:     streams.Out,
+	}, nil
+}
+
 func buildRuntime(streams cli.Streams) (*config.Store, auth.Service, *ticktick.Client, error) {
 	store, cfg, err := loadConfigStore()
 	if err != nil {
@@ -76,13 +93,15 @@ func main() {
 		Streams:        streams,
 		RegionResolver: resolveRegion,
 		LoginAuthResolver: func() (*app.AuthApp, error) {
-			store, service, _, err := buildRuntime(streams)
+			store, _, err := loadConfigStore()
 			if err != nil {
 				return nil, err
 			}
 			return &app.AuthApp{
 				ConfigStore: store,
-				Service:     service,
+				ServiceForRegion: func(region string) (app.AuthService, error) {
+					return buildAuthService(region, streams)
+				},
 			}, nil
 		},
 		AuthServiceResolver: func() (app.AuthService, error) {
