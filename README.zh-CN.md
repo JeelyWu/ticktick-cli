@@ -1,6 +1,6 @@
 # tick - TickTick/Dida365 CLI
 
-**中文** | [English](README.md)
+**中文** | [English](README.en.md)
 
 [![Unit Tests](https://github.com/JeelyWu/ticktick-cli/actions/workflows/unit-tests.yml/badge.svg?branch=master)](https://github.com/JeelyWu/ticktick-cli/actions/workflows/unit-tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
