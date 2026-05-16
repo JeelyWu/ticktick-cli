@@ -127,7 +127,10 @@ func (a TaskApp) findTask(ctx context.Context, ref string, projectRef string) (d
 }
 
 func (a TaskApp) Today(ctx context.Context) ([]domain.Task, map[string]string, error) {
-	return a.List(ctx, ListTasksInput{Today: true})
+	return a.List(ctx, ListTasksInput{
+		Statuses: []domain.TaskStatus{domain.StatusOpen},
+		Today:    true,
+	})
 }
 
 func resolveTaskReference(ref string, tasks []domain.Task) (domain.Task, error) {

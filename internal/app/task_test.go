@@ -161,6 +161,35 @@ func TestTaskAppListFiltersToday(t *testing.T) {
 	}
 }
 
+func TestTaskAppTodayRequestsOpenTasks(t *testing.T) {
+	now := time.Date(2026, 4, 9, 9, 0, 0, 0, time.Local)
+	due := time.Date(2026, 4, 9, 17, 0, 0, 0, time.Local)
+	client := &recordingTaskAPI{
+		filterTasks: []domain.Task{
+			{ID: "today", Title: "Today", ProjectID: "p1", Status: domain.StatusOpen, DueDate: &due},
+			{ID: "completed", Title: "Done", ProjectID: "p1", Status: domain.StatusCompleted, DueDate: &due},
+		},
+	}
+	taskApp := TaskApp{
+		Auth:   stubTokenSource{},
+		Client: client,
+		Now: func() time.Time {
+			return now
+		},
+	}
+
+	tasks, _, err := taskApp.Today(context.Background())
+	if err != nil {
+		t.Fatalf("Today() error = %v", err)
+	}
+	if len(tasks) != 1 || tasks[0].ID != "today" {
+		t.Fatalf("tasks = %#v, want only open today task", tasks)
+	}
+	if got := client.lastFilter.StatusCodes(); len(got) != 1 || got[0] != int(domain.StatusOpen) {
+		t.Fatalf("lastFilter.StatusCodes() = %v, want [%d]", got, domain.StatusOpen)
+	}
+}
+
 func TestTaskAppListFiltersOverdue(t *testing.T) {
 	now := time.Date(2026, 4, 9, 9, 0, 0, 0, time.Local)
 	yesterday := time.Date(2026, 4, 8, 18, 0, 0, 0, time.Local)
