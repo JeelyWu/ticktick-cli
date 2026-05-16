@@ -1,0 +1,6 @@
+interface:
+  display_name: "TickTick CLI"
+  short_description: "Operate TickTick/Dida365 from the terminal"
+  default_prompt: "Use $ticktick-cli to manage my TickTick tasks from the terminal."
+policy:
+  allow_implicit_invocation: true
