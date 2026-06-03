@@ -5,6 +5,8 @@
 [![Unit Tests](https://github.com/JeelyWu/ticktick-cli/actions/workflows/unit-tests.yml/badge.svg?branch=master)](https://github.com/JeelyWu/ticktick-cli/actions/workflows/unit-tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+<img src="tick.gif" alt="tick demo" width="800">
+
 `tick` is an unofficial Go CLI for TickTick / Dida365, including the mainland China Dida365 service known as 滴答清单. It uses the official Open API to bring task capture, project management, habits, focus sessions, and scriptable output into your terminal.
 
 ## Why tick?

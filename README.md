@@ -5,6 +5,8 @@
 [![Unit Tests](https://github.com/JeelyWu/ticktick-cli/actions/workflows/unit-tests.yml/badge.svg?branch=master)](https://github.com/JeelyWu/ticktick-cli/actions/workflows/unit-tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+<img src="tick.gif" alt="tick demo" width="800">
+
 `tick` 是一个非官方的 Go CLI，通过官方 Open API 操作 TickTick 国际版和滴答清单（Dida365）。它把快速录入任务、项目管理、习惯、专注记录和可脚本化输出带到终端里。
 
 ## 为什么用 tick？
