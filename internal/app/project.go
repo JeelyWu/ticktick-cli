@@ -32,10 +32,16 @@ func (a ProjectApp) List(ctx context.Context) ([]domain.Project, error) {
 	if err != nil {
 		return nil, err
 	}
-	sort.Slice(projects, func(i, j int) bool {
-		return projects[i].SortOrder < projects[j].SortOrder
+	active := make([]domain.Project, 0, len(projects))
+	for _, p := range projects {
+		if !p.Closed {
+			active = append(active, p)
+		}
+	}
+	sort.Slice(active, func(i, j int) bool {
+		return active[i].SortOrder < active[j].SortOrder
 	})
-	return projects, nil
+	return active, nil
 }
 
 func (a ProjectApp) Get(ctx context.Context, ref string) (domain.Project, error) {
