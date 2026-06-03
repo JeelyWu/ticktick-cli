@@ -113,7 +113,8 @@ main() {
   local checksum_name
   local release_base
   local install_dir
-  local tmpdir
+  # tmpdir is intentionally not local so the EXIT trap can reference it after main returns.
+  tmpdir=""
   local archive_path
   local checksum_path
   local checksum_entry
